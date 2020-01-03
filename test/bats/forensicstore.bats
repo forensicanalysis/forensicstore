@@ -47,7 +47,7 @@ teardown() {
 }
 
 @test "jsonlite get" {
-    forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 test/data/valid/example1.forensicstore > $TESTDIR/a.json
+    forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 test/forensicstore/example1.forensicstore > $TESTDIR/a.json
 
     echo '{"uid": "process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
@@ -65,21 +65,21 @@ teardown() {
 }
 
 @test "jsonlite get non existing item" {
-    run forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 test/data/valid/example1.forensicstore
+    run forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 test/forensicstore/example1.forensicstore
     [ "$status" -ne 0 ]
     skip "TODO: Fix error output"
     [ "$output" = "foo: no such process '1337'" ]
 }
 
 @test "jsonlite select" {
-    forensicstore item select file test/data/valid/example1.forensicstore > $TESTDIR/all.json
+    forensicstore item select file test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
     [ "$output" = '2' ]
 }
 
 @test "jsonlite all" {
-    forensicstore item all test/data/valid/example1.forensicstore > $TESTDIR/all.json
+    forensicstore item all test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
     [ "$output" = '7' ]
