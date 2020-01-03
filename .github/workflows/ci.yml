@@ -100,7 +100,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@master
         with:
-          name: fs ${{ matrix.os }}
+          name: forensicstore ${{ matrix.os }}
           path: ./cmd/forensicstore/bin
 
   pythonforensicstorelib:
