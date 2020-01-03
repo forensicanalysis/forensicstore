@@ -85,7 +85,7 @@ jobs:
           pip install -e .
         shell: bash
       - name: Bats test
-        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/validate.bats
         shell: bash
 
       - name: Symlink forensicstore
@@ -94,7 +94,7 @@ jobs:
           chmod +x forensicstore
         shell: bash
       - name: Bats reverse test
-        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/validate.bats
         shell: bash
 
       - name: Upload
@@ -119,7 +119,8 @@ jobs:
     - run: python setup.py install
     - run: pip install pylint pytest pytest-cov
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
-    - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov={forensicstore,jsonlite} test/python
+    - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
+      shell: bash
     - name: Python Documentation
       run: |
         pip install sphinx sphinx_rtd_theme sphinx_markdown_builder
