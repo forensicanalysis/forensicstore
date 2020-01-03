@@ -67,8 +67,6 @@ jobs:
 
       - name: Build
         run: |
-          go get github.com/cugu/go-resources/cmd/resources
-          go generate
           go build .
           go install .
           mkdir bin
@@ -86,21 +84,14 @@ jobs:
           chmod +x $(go env GOPATH)/jq
           pip install -e .
         shell: bash
-      - name: Symlink forensicstore
-        run: |
-          ln -fs `which pyforensicstore` validation_forensicstore
-          ln -fs `which forensicstore` tested_forensicstore
-          chmod +x validation_forensicstore tested_forensicstore
-        shell: bash
       - name: Bats test
         run: bats test/bats/jsonlite.bats test/bats/validate.bats
         shell: bash
 
       - name: Symlink forensicstore
         run: |
-          ln -fs `which pyforensicstore` tested_forensicstore
-          ln -fs `which forensicstore` validation_forensicstore
-          chmod +x validation_forensicstore tested_forensicstore
+          ln -fs `which pyforensicstore` forensicstore
+          chmod +x forensicstore
         shell: bash
       - name: Bats reverse test
         run: bats test/bats/jsonlite.bats test/bats/validate.bats
@@ -117,7 +108,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        # os: [macos-latest, windows-latest, ubuntu-latest]
+        os: [windows-latest]
         python-version: [3.6, 3.7]
     steps:
     - uses: actions/checkout@v1

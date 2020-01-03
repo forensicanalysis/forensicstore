@@ -59,8 +59,6 @@ package main
 
 import "github.com/forensicanalysis/forensicstore/cmd/forensicstore/subcommands"
 
-//go:generate resources -declare -var=FS -package assets -output subcommands/process/assets/assets.go subcommands/process/script/* subcommands/process/script/templates/*
-
 func main() {
 	subcommands.Execute()
 }
