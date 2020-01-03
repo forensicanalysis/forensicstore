@@ -29,7 +29,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/forensicanalysis/forensicstore/gostore"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -42,6 +41,7 @@ import (
 	"sync"
 
 	"github.com/forensicanalysis/forensicstore/goflatten"
+	"github.com/forensicanalysis/forensicstore/gostore"
 	"github.com/forensicanalysis/fslib/aferotools/copy"
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
@@ -572,7 +572,7 @@ func (db *JSONLite) Validate() (e []string, err error) {
 
 		foundFiles[path] = true
 		if _, ok := expectedFiles[path]; !ok {
-			additionalFiles = append(additionalFiles, path)
+			additionalFiles = append(additionalFiles, filepath.ToSlash(path))
 		}
 		return nil
 	})
@@ -587,7 +587,7 @@ func (db *JSONLite) Validate() (e []string, err error) {
 	var missingFiles []string
 	for expectedFile := range expectedFiles {
 		if _, ok := foundFiles[expectedFile]; !ok {
-			missingFiles = append(missingFiles, expectedFile)
+			missingFiles = append(missingFiles, filepath.ToSlash(expectedFile))
 		}
 	}
 
