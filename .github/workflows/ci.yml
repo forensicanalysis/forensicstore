@@ -73,7 +73,7 @@ jobs:
           go install .
           mkdir bin
           mv forensicstore* bin
-        working-directory: ./goforensicstore/cmd/forensicstore
+        working-directory: ./cmd/forensicstore
         shell: bash
 
       - name: Setup python
