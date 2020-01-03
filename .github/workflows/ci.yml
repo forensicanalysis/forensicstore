@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: fs ${{ matrix.os }}
-          path: goforensicstore/cmd/forensicstore/bin
+          path: ./cmd/forensicstore/bin
 
   pythonforensicstorelib:
     name: Python forensicstore
@@ -123,6 +123,6 @@ jobs:
       shell: bash
     - name: Python Documentation
       run: |
-        pip install sphinx sphinx_rtd_theme sphinx_markdown_builder
+        pip install 'sphinx==1.8.5' sphinx_rtd_theme sphinx_markdown_builder
         sphinx-build -M markdown pyforensicstore/docs/src/ public/pyforensicstore/docs/
         sphinx-build -M html pyforensicstore/docs/src/ public/pyforensicstore/docs/
