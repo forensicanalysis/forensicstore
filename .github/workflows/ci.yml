@@ -80,7 +80,7 @@ jobs:
           python-version: 3.7
       - name: Install pyforensicstore
         run: |
-          wget -q https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O $(go env GOPATH)/jq
+          curl -sSfL https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > $(go env GOPATH)/jq
           chmod +x $(go env GOPATH)/jq
           pip install -e .
         shell: bash
@@ -108,8 +108,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [macos-latest, windows-latest, ubuntu-latest]
-        os: [windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
         python-version: [3.6, 3.7]
     steps:
     - uses: actions/checkout@v1
