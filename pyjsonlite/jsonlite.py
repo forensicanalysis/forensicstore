@@ -131,10 +131,10 @@ class JSONLite:
 
         # insert item
         cur = self.connection.cursor()
-        query = "INSERT INTO \"{table}\"({columns}) VALUES ({values})".format(
+        query = "INSERT INTO \"{table}\" ({columns}) VALUES ({values})".format(
             table=item[self.discriminator()],
             columns=", ".join(['"' + c + '"' for c in column_names]),
-            values=", ".join(['?' * len(column_values)])
+            values=", ".join(['?'] * len(column_values))
         )
         LOGGER.debug("insert query: %s", query)
         try:

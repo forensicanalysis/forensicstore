@@ -23,9 +23,10 @@ package subcommands
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 // Execute is the entrypoint for the forensicstore commandline tool.
@@ -59,6 +60,7 @@ func itemCommand() *cobra.Command {
 	return itemCommand
 }
 
+/*
 func serveCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:     "serve",
@@ -82,6 +84,7 @@ func uiCommand() *cobra.Command {
 		},
 	}
 }
+*/
 
 func requireOneStore(_ *cobra.Command, args []string) error {
 	if len(args) != 1 {

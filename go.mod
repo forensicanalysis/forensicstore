@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/fatih/structs v1.1.0
-	github.com/forensicanalysis/fslib v0.4.0
+	github.com/forensicanalysis/fslib v0.12.0
 	github.com/google/uuid v1.1.1
 	github.com/iancoleman/strcase v0.0.0-20190422225806-e506e3ef7365
 	github.com/imdario/mergo v0.3.7
@@ -18,5 +18,3 @@ require (
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 )
-
-replace github.com/forensicanalysis/fslib => ../fslib

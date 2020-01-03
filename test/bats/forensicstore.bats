@@ -40,16 +40,16 @@ teardown() {
 }
 
 @test "jsonlite load not existing" {
-    run forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/not_existing.forensicstore
+    run forensicstore item get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 $TESTDIR/not_existing.forensicstore
     [ "$status" -ne 0 ]
     skip "TODO: Fix error output"
     [ "$output" = "foo: no such file 'nonexistent_filename'" ]
 }
 
 @test "jsonlite get" {
-    forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 test/data/valid/example1.forensicstore > $TESTDIR/a.json
+    forensicstore item get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 test/forensicstore/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"uid": "process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+    echo '{"uid": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
     echo "a"
     run cat $TESTDIR/a.json
@@ -65,28 +65,28 @@ teardown() {
 }
 
 @test "jsonlite get non existing item" {
-    run forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 test/data/valid/example1.forensicstore
+    run forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 test/forensicstore/example1.forensicstore
     [ "$status" -ne 0 ]
     skip "TODO: Fix error output"
     [ "$output" = "foo: no such process '1337'" ]
 }
 
 @test "jsonlite select" {
-    forensicstore item select file test/data/valid/example1.forensicstore > $TESTDIR/all.json
+    forensicstore item select file test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
     [ "$output" = '2' ]
 }
 
 @test "jsonlite all" {
-    forensicstore item all test/data/valid/example1.forensicstore > $TESTDIR/all.json
+    forensicstore item all test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
     [ "$output" = '7' ]
 }
 
 @test "jsonlite insert" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -110,7 +110,7 @@ teardown() {
 }
 
 @test "jsonlite insert new field" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
@@ -142,7 +142,7 @@ teardown() {
 }
 
 @test "jsonlite insert int 0" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "size": 0, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -163,7 +163,7 @@ teardown() {
 }
 
 @test "jsonlite insert empty list" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "list": [], "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -184,7 +184,7 @@ teardown() {
 }
 
 @test "jsonlite insert item with none value" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "list": null, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -205,7 +205,7 @@ teardown() {
 }
 
 @test "jsonlite insert item with empty value" {
-    cp -R test/data/valid/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "file", "name": "foo.txt", "created": "", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -ne 0 ]
@@ -214,12 +214,12 @@ teardown() {
 }
 
 # @test "jsonlite update" {
-#     cp -R test/data/valid/. $TESTDIR/
-#     forensicstore item update process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 '{"name": "foo"}' $TESTDIR/example1.forensicstore
+#     cp -R test/forensicstore/. $TESTDIR/
+#     forensicstore item update process--920d7c41-0fef-4cf8-bce2-ead120f6b506 '{"name": "foo"}' $TESTDIR/example1.forensicstore
 
-#     forensicstore item get process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
+#     forensicstore item get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-#     echo '{"uid": "process--16b02a2b-d1a1-4e79-aad6-2f2c1c286817", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": ["-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+#     echo '{"uid": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": ["-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
 #     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
 #     [ "$status" -eq 0 ]

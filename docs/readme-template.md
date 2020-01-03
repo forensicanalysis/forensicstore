@@ -54,5 +54,3 @@ go get -u {{.ModulePath}}
 {{ $value }}
 ```
 {{end}}{{end}}
-
-The full documentation can be found in the [godocs](https://pkg.go.dev/{{.ModulePath}}).

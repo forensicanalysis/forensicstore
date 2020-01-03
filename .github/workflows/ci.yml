@@ -15,15 +15,6 @@ jobs:
         with: {go-version: 1.13}
       - name: Checkout code
         uses: actions/checkout@v1
-        with:
-          path: forensicstore
-      - name: Checkout fslib
-        uses: actions/checkout@v1
-        with:
-          repository: cugu/fslib
-          ref: master
-          token: ${{ secrets.GITHUB_PAT }}
-          path: fslib
       - name: Set system path
         run: echo "##[add-path]$(go env GOPATH)/bin"
         shell: bash
@@ -43,10 +34,10 @@ jobs:
         run: go-acc ./...
         shell: bash
       - name: Upload coverage
-        run: |
-          curl -s https://codecov.io/bash > codecov.sh
-          chmod +x codecov.sh
-          CODECOV_TOKEN=$(CODECOV_TOKEN) ./codecov.sh
+        env:
+          CI: "true"
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: bash <(curl -s https://codecov.io/bash)
         if: matrix.os == 'windows-latest'
         shell: bash
 
@@ -62,15 +53,6 @@ jobs:
         with: {go-version: '1.13'}
       - name: Checkout code
         uses: actions/checkout@v1
-        with:
-          path: forensicstore
-      - name: Checkout fslib
-        uses: actions/checkout@v1
-        with:
-          repository: cugu/fslib
-          ref: master
-          token: ${{ secrets.GITHUB_PAT }}
-          path: fslib
       - name: Set system path
         run: echo "##[add-path]$(go env GOPATH)/bin"
         shell: bash
@@ -85,13 +67,11 @@ jobs:
 
       - name: Build
         run: |
-          go get github.com/cugu/go-resources/cmd/resources
-          go generate
           go build .
           go install .
           mkdir bin
           mv forensicstore* bin
-        working-directory: ./goforensicstore/cmd/forensicstore
+        working-directory: ./cmd/forensicstore
         shell: bash
 
       - name: Setup python
@@ -100,35 +80,28 @@ jobs:
           python-version: 3.7
       - name: Install pyforensicstore
         run: |
-          wget -q https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O $(go env GOPATH)/jq
+          curl -sSfL https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > $(go env GOPATH)/jq
           chmod +x $(go env GOPATH)/jq
           pip install -e .
         shell: bash
-      - name: Symlink forensicstore
-        run: |
-          ln -fs `which pyforensicstore` validation_forensicstore
-          ln -fs `which forensicstore` tested_forensicstore
-          chmod +x validation_forensicstore tested_forensicstore
-        shell: bash
       - name: Bats test
-        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
         shell: bash
 
       - name: Symlink forensicstore
         run: |
-          ln -fs `which pyforensicstore` tested_forensicstore
-          ln -fs `which forensicstore` validation_forensicstore
-          chmod +x validation_forensicstore tested_forensicstore
+          ln -fs `which pyforensicstore` forensicstore
+          chmod +x forensicstore
         shell: bash
       - name: Bats reverse test
-        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
         shell: bash
 
       - name: Upload
         uses: actions/upload-artifact@master
         with:
-          name: fs ${{ matrix.os }}
-          path: goforensicstore/cmd/forensicstore/bin
+          name: forensicstore ${{ matrix.os }}
+          path: ./cmd/forensicstore/bin
 
   pythonforensicstorelib:
     name: Python forensicstore
@@ -145,9 +118,10 @@ jobs:
     - run: python setup.py install
     - run: pip install pylint pytest pytest-cov
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
-    - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov={forensicstore,jsonlite} test/python
+    - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
+      shell: bash
     - name: Python Documentation
       run: |
-        pip install sphinx sphinx_rtd_theme sphinx_markdown_builder
+        pip install 'sphinx==1.8.5' sphinx_rtd_theme sphinx_markdown_builder
         sphinx-build -M markdown pyforensicstore/docs/src/ public/pyforensicstore/docs/
         sphinx-build -M html pyforensicstore/docs/src/ public/pyforensicstore/docs/
