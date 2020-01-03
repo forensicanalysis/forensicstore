@@ -86,7 +86,7 @@ teardown() {
 }
 
 @test "jsonlite insert" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -110,7 +110,7 @@ teardown() {
 }
 
 @test "jsonlite insert new field" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
@@ -142,7 +142,7 @@ teardown() {
 }
 
 @test "jsonlite insert int 0" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "size": 0, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -163,7 +163,7 @@ teardown() {
 }
 
 @test "jsonlite insert empty list" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "list": [], "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -184,7 +184,7 @@ teardown() {
 }
 
 @test "jsonlite insert item with none value" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "foo", "list": null, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
@@ -205,7 +205,7 @@ teardown() {
 }
 
 @test "jsonlite insert item with empty value" {
-    cp -R test/data/forensicstore/. $TESTDIR/
+    cp -R test/forensicstore/. $TESTDIR/
     run forensicstore item insert '{"type": "file", "name": "foo.txt", "created": "", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -ne 0 ]
@@ -214,7 +214,7 @@ teardown() {
 }
 
 # @test "jsonlite update" {
-#     cp -R test/data/forensicstore/. $TESTDIR/
+#     cp -R test/forensicstore/. $TESTDIR/
 #     forensicstore item update process--920d7c41-0fef-4cf8-bce2-ead120f6b506 '{"name": "foo"}' $TESTDIR/example1.forensicstore
 
 #     forensicstore item get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 $TESTDIR/example1.forensicstore > $TESTDIR/a.json

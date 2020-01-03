@@ -85,7 +85,7 @@ jobs:
           pip install -e .
         shell: bash
       - name: Bats test
-        run: bats test/bats/forensicstore.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
         shell: bash
 
       - name: Symlink forensicstore
@@ -94,7 +94,7 @@ jobs:
           chmod +x forensicstore
         shell: bash
       - name: Bats reverse test
-        run: bats test/bats/forensicstore.bats test/bats/validate.bats
+        run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
         shell: bash
 
       - name: Upload
