@@ -1,0 +1,153 @@
+name: CI
+on: [push]
+
+jobs:
+
+  goforensicstorelib:
+    name: Go forensicstore
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - name: Setup go 1.13
+        uses: actions/setup-go@v1
+        with: {go-version: 1.13}
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          path: forensicstore
+      - name: Checkout fslib
+        uses: actions/checkout@v1
+        with:
+          repository: cugu/fslib
+          ref: master
+          token: ${{ secrets.GITHUB_PAT }}
+          path: fslib
+      - name: Set system path
+        run: echo "##[add-path]$(go env GOPATH)/bin"
+        shell: bash
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install golangci-lint & go-acc
+        run: |
+          curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh| sh -s -- -b $(go env GOPATH)/bin v1.21.0
+          go get -u github.com/ory/go-acc
+        shell: bash
+
+      - name: Lint
+        run: golangci-lint run --verbose --tests=false --deadline=3m --config test/.golangci.yml
+        shell: bash
+      - name: Test
+        run: go-acc ./...
+        shell: bash
+      - name: Upload coverage
+        run: |
+          curl -s https://codecov.io/bash > codecov.sh
+          chmod +x codecov.sh
+          CODECOV_TOKEN=$(CODECOV_TOKEN) ./codecov.sh
+        if: matrix.os == 'windows-latest'
+        shell: bash
+
+  forensicstore:
+    name: forensicstore
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    steps:
+      - name: Setup go 1.13
+        uses: actions/setup-go@v1
+        with: {go-version: '1.13'}
+      - name: Checkout code
+        uses: actions/checkout@v1
+        with:
+          path: forensicstore
+      - name: Checkout fslib
+        uses: actions/checkout@v1
+        with:
+          repository: cugu/fslib
+          ref: master
+          token: ${{ secrets.GITHUB_PAT }}
+          path: fslib
+      - name: Set system path
+        run: echo "##[add-path]$(go env GOPATH)/bin"
+        shell: bash
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with: {node-version: '10.x'}
+      - name: Install bats
+        run: npm install -g bats
+
+      - name: Build
+        run: |
+          go get github.com/cugu/go-resources/cmd/resources
+          go generate
+          go build .
+          go install .
+          mkdir bin
+          mv forensicstore* bin
+        working-directory: ./goforensicstore/cmd/forensicstore
+        shell: bash
+
+      - name: Setup python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.7
+      - name: Install pyforensicstore
+        run: |
+          wget -q https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -O $(go env GOPATH)/jq
+          chmod +x $(go env GOPATH)/jq
+          pip install -e .
+        shell: bash
+      - name: Symlink forensicstore
+        run: |
+          ln -fs `which pyforensicstore` validation_forensicstore
+          ln -fs `which forensicstore` tested_forensicstore
+          chmod +x validation_forensicstore tested_forensicstore
+        shell: bash
+      - name: Bats test
+        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        shell: bash
+
+      - name: Symlink forensicstore
+        run: |
+          ln -fs `which pyforensicstore` tested_forensicstore
+          ln -fs `which forensicstore` validation_forensicstore
+          chmod +x validation_forensicstore tested_forensicstore
+        shell: bash
+      - name: Bats reverse test
+        run: bats test/bats/jsonlite.bats test/bats/validate.bats
+        shell: bash
+
+      - name: Upload
+        uses: actions/upload-artifact@master
+        with:
+          name: fs ${{ matrix.os }}
+          path: goforensicstore/cmd/forensicstore/bin
+
+  pythonforensicstorelib:
+    name: Python forensicstore
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        python-version: [3.6, 3.7]
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions/setup-python@v1
+      with:
+        python-version: ${{ matrix.python-version }}
+    - run: python setup.py install
+    - run: pip install pylint pytest pytest-cov
+    - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
+    - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov={forensicstore,jsonlite} test/python
+    - name: Python Documentation
+      run: |
+        pip install sphinx sphinx_rtd_theme sphinx_markdown_builder
+        sphinx-build -M markdown pyforensicstore/docs/src/ public/pyforensicstore/docs/
+        sphinx-build -M html pyforensicstore/docs/src/ public/pyforensicstore/docs/
