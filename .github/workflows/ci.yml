@@ -96,8 +96,16 @@ jobs:
     - uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    - run: python setup.py install
     - run: pip install pylint pytest pytest-cov
+
+    - name: Setup node
+      uses: actions/setup-node@v1
+      with: {node-version: '10.x'}
+    - name: Install bats
+      run: npm install -g bats
+
+    - run: python setup.py install
+
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
     - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
       shell: bash
