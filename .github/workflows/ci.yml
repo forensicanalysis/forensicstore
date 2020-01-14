@@ -74,26 +74,7 @@ jobs:
         working-directory: ./cmd/forensicstore
         shell: bash
 
-      - name: Setup python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
-      - name: Install pyforensicstore
-        run: |
-          curl -sSfL https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > $(go env GOPATH)/jq
-          chmod +x $(go env GOPATH)/jq
-          pip install -e .
-        shell: bash
       - name: Bats test
-        run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
-        shell: bash
-
-      - name: Symlink forensicstore
-        run: |
-          ln -fs `which pyforensicstore` forensicstore
-          chmod +x forensicstore
-        shell: bash
-      - name: Bats reverse test
         run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
         shell: bash
 
@@ -109,17 +90,47 @@ jobs:
     strategy:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
-        python-version: [3.6, 3.7]
+        python-version: [3.6, 3.7, 3.8]
     steps:
+
+    # Setup
     - uses: actions/checkout@v1
     - uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    - run: python setup.py install
     - run: pip install pylint pytest pytest-cov
+
+    - run: pip install .
+
+    # Lint and test pyforensicstore
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
     - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
       shell: bash
+
+    # Test pyforensicstore command (TODO: fails on windows)
+    - name: Set system path
+      run: echo "##[add-path]$PWD"
+      shell: bash
+      if: matrix.os != 'windows-latest'
+    - name: Symlink forensicstore
+      run: |
+        ln -fs `which pyforensicstore` forensicstore
+        chmod +x forensicstore
+      shell: bash
+      if: matrix.os != 'windows-latest'
+    - name: Setup node
+      uses: actions/setup-node@v1
+      with: {node-version: '10.x'}
+      if: matrix.os != 'windows-latest'
+    - name: Install bats
+      run: npm install -g bats
+      if: matrix.os != 'windows-latest'
+    - name: Bats python test
+      run: bats test/bats/forensicstore.bats test/bats/forensicstore_validate.bats
+      shell: bash
+      if: matrix.os != 'windows-latest'
+
+    # Generate documentation
     - name: Python Documentation
       run: |
         pip install 'sphinx==1.8.5' sphinx_rtd_theme sphinx_markdown_builder
