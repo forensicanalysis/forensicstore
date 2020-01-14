@@ -104,7 +104,7 @@ jobs:
     - name: Install bats
       run: npm install -g bats
 
-    - run: python setup.py install
+    - run: pip install .
 
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
     - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
