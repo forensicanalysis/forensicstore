@@ -110,6 +110,9 @@ jobs:
     - run: pytest -v --cov-config .coveragerc --cov-report html:coverage --cov-report term --cov=forensicstore --cov=jsonlite test/python
       shell: bash
 
+    - name: Set system path
+      run: echo "##[add-path]$PWD"
+      shell: bash
     - name: Symlink forensicstore
       run: |
         ln -fs `which pyforensicstore` forensicstore
