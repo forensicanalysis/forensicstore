@@ -18,11 +18,14 @@ sys.path.insert(0, os.path.abspath('../../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'forensicstore'
-copyright = 'Copyright (c) 2019 Siemens AG'
+copyright = '2019 Siemens AG'
 author = 'Jonas Plum'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+# release = '0.1.0'
+
+html_baseurl = 'https://forensicanalysis.github.io/forensicstore/'
+master_doc = 'index'
 
 # -- General configuration ---------------------------------------------------
 
