@@ -63,9 +63,7 @@ if __name__ == '__main__':
     store.close()
 ```
 
-<!--
-The full documentation can be found in [the documentation](TODO).
--->
+The full documentation can be found in [the documentation](https://forensicanalysis.github.io/forensicstore/pyforensicstore/docs/html/).
 
 ## Go package
 
