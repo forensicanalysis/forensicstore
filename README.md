@@ -42,7 +42,6 @@ example.forensicstore/
 
 ## Python library
 
-<!--
 ### Installation
 
 Python installation can be easily done via pip:
@@ -50,7 +49,6 @@ Python installation can be easily done via pip:
 ```bash
 pip install forensicstore
 ```
--->
 
 ### Usage
 
