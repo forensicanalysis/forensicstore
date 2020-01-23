@@ -180,64 +180,90 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) {
 
 // Insert adds a single item.
 func (db *JSONLite) Insert(item Item) (string, error) {
-	if _, ok := item[db.Discriminator()]; !ok {
-		return "", errors.New("missing discriminator in item")
+	uids, err := db.InsertBatch([]Item{item})
+	return uids[0], err
+}
+
+// InsertBatch adds a set of items.
+func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+	firstItem := items[0]
+
+	if _, ok := firstItem[db.Discriminator()]; !ok {
+		return nil, errors.New("missing discriminator in item")
 	}
 
-	if _, ok := item["uid"]; !ok {
-		item["uid"] = item[db.Discriminator()].(string) + "--" + uuid.New().String()
+	if _, ok := firstItem["uid"]; !ok {
+		firstItem["uid"] = firstItem[db.Discriminator()].(string) + "--" + uuid.New().String()
 	}
 
-	flatItem, err := goflatten.Flatten(item)
+	flatItem, err := goflatten.Flatten(firstItem)
 	if err != nil {
-		return "", errors.Wrap(err, "could not flatten item")
-	}
-
-	var placeholder []string
-	for range flatItem {
-		placeholder = append(placeholder, "?")
-	}
-
-	if err := db.ensureTable(flatItem, item); err != nil {
-		return "", errors.Wrap(err, "could not ensure table")
-	}
-
-	if db.Strict() {
-		valErr, err := db.validateItemSchema(item)
-		if err != nil {
-			return "", errors.Wrap(err, "validation failed")
-		}
-		if len(valErr) > 0 {
-			return "", fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
-		}
-	}
-
-	var columnNames []string
-	var columnValues []interface{}
-	for k, v := range flatItem {
-		columnNames = append(columnNames, "\""+k+"\"")
-		columnValues = append(columnValues, v)
-	}
-
-	query := fmt.Sprintf(
-		"INSERT INTO \"%s\"(%s) VALUES (%s)",
-		item[db.Discriminator()].(string),
-		strings.Join(columnNames, ","),
-		strings.Join(placeholder, ","),
-	) // #nosec
-	stmt, err := db.cursor.Prepare(query)
-	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
+		return nil, errors.Wrap(err, "could not flatten item")
 	}
 
 	db.sqlMutex.Lock()
 	defer db.sqlMutex.Unlock()
-	_, err = stmt.Exec(columnValues...)
-	if err != nil {
-		return "", errors.Wrap(err, "could not exec statement")
+
+	if err := db.ensureTable(flatItem, firstItem); err != nil {
+		return nil, errors.Wrap(err, "could not ensure table")
 	}
 
-	return item["uid"].(string), nil
+	// get columnNames
+	var columnNames []string
+	for k := range flatItem {
+		columnNames = append(columnNames, k)
+	}
+
+	// get columnValues
+	var placeholderGrp []string
+	var columnValues []interface{}
+	var uids []string
+	for _, item := range items {
+		if db.Strict() {
+			valErr, err := db.validateItemSchema(item)
+			if err != nil {
+				return nil, errors.Wrap(err, "validation failed")
+			}
+			if len(valErr) > 0 {
+				return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+			}
+		}
+
+		flatItem, err := goflatten.Flatten(item)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not flatten item")
+		}
+		if _, ok := flatItem["uid"]; !ok {
+			flatItem["uid"] = flatItem[db.Discriminator()].(string) + "--" + uuid.New().String()
+		}
+		for _, name := range columnNames {
+			columnValues = append(columnValues, flatItem[name])
+		}
+		placeholderGrp = append(placeholderGrp, "("+strings.Repeat("?,", len(flatItem)-1)+"?)")
+
+		uids = append(uids, flatItem["uid"].(string))
+	}
+
+	query := fmt.Sprintf(
+		"INSERT INTO \"%s\"(%s) VALUES %s",
+		firstItem[db.Discriminator()].(string),
+		`"`+strings.Join(columnNames, `","`)+`"`,
+		strings.Join(placeholderGrp, ","),
+	) // #nosec
+	stmt, err := db.cursor.Prepare(query)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
+	}
+
+	_, err = stmt.Exec(columnValues...)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprint("could not exec statement", query, columnValues))
+	}
+
+	return uids, nil
 }
 
 // Get retreives a single item.

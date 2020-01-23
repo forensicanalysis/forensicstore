@@ -82,9 +82,20 @@ func NewJSONLite(remoteURL string) (*ForensicStore, error) {
 
 // InsertStruct converts a Go struct to a map and inserts it.
 func (db *ForensicStore) InsertStruct(item interface{}) (string, error) {
-	m := structs.Map(item)
-	m = lower(m).(map[string]interface{})
-	return db.Insert(m)
+	ids, err := db.InsertStructBatch([]interface{}{item})
+	return ids[0], err
+}
+
+// InsertStruct converts a Go struct to a map and inserts it.
+func (db *ForensicStore) InsertStructBatch(items []interface{}) ([]string, error) {
+	var ms []gostore.Item
+	for _, item := range items {
+		m := structs.Map(item)
+		m = lower(m).(map[string]interface{})
+		ms = append(ms, m)
+	}
+
+	return db.InsertBatch(ms)
 }
 
 func lower(f interface{}) interface{} {

@@ -36,6 +36,7 @@ type Store interface {
 	afero.Fs
 
 	Insert(item Item) (string, error)
+	InsertBatch(items []Item) ([]string, error)
 	Get(id string) (item Item, err error)
 	Update(id string, partialItem Item) (string, error)
 	Select(itemType string) (items []Item, err error)
