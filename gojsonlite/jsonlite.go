@@ -184,7 +184,7 @@ func (db *JSONLite) Insert(item Item) (string, error) {
 	return uids[0], err
 }
 
-// InsertBatch adds a set of items.
+// InsertBatch adds a set of items. All items must have the same fields.
 func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
 	if len(items) == 0 {
 		return nil, nil
@@ -203,9 +203,6 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not flatten item")
 	}
-
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
 
 	if err := db.ensureTable(flatItem, firstItem); err != nil {
 		return nil, errors.Wrap(err, "could not ensure table")
@@ -258,6 +255,8 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
 	}
 
+	db.sqlMutex.Lock()
+	defer db.sqlMutex.Unlock()
 	_, err = stmt.Exec(columnValues...)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprint("could not exec statement", query, columnValues))
@@ -903,6 +902,8 @@ func (db *JSONLite) getTables() (map[string]map[string]string, error) {
 }
 
 func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
+	db.sqlMutex.Lock()
+	defer db.sqlMutex.Unlock()
 	if table, ok := db.tables.load(item[db.Discriminator()].(string)); !ok {
 		valErr, err := db.validateItemSchema(item)
 		if err != nil {
@@ -952,8 +953,6 @@ func (db *JSONLite) createTable(flatItem Item) error {
 	}
 	columnText := strings.Join(columns, ", ")
 
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
 	_, err := db.cursor.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatItem[db.Discriminator()], columnText))
 	return err
 }
@@ -993,9 +992,7 @@ func (db *JSONLite) addMissingColumns(table string, columns map[string]interface
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
 		db.tables.innerstore(table, newColumn, sqlDataType)
-		db.sqlMutex.Lock()
 		_, err := db.cursor.Exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
-		db.sqlMutex.Unlock()
 		if err != nil {
 			return err
 		}
