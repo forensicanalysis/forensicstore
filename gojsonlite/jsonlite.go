@@ -220,7 +220,9 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
 	var uids []string
 	for _, item := range items {
 		if db.Strict() {
+			db.sqlMutex.Lock()
 			valErr, err := db.validateItemSchema(item)
+			db.sqlMutex.Unlock()
 			if err != nil {
 				return nil, errors.Wrap(err, "validation failed")
 			}
@@ -630,7 +632,9 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 		e = append(e, "item needs to have a discriminator")
 	}
 
+	db.sqlMutex.Lock()
 	valErr, err := db.validateItemSchema(item)
+	db.sqlMutex.Unlock()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -710,14 +714,12 @@ func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
 		return e, errors.Wrap(err, "could not get root schema")
 	}
 
-	db.sqlMutex.Lock()
 	for _, schemaName := range db.schemas.keys() {
 		schema, _ := db.schemas.load(schemaName)
 		jsonschema.DefaultSchemaPool["jsonlite:"+schemaName] = &schema.Schema // TODO fill cache only once
 	}
 
 	err = rootSchema.FetchRemoteReferences()
-	db.sqlMutex.Unlock()
 	if err != nil {
 		return e, errors.Wrap(err, "could not FetchRemoteReferences")
 	}
@@ -902,9 +904,12 @@ func (db *JSONLite) getTables() (map[string]map[string]string, error) {
 }
 
 func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
+	itemType := item[db.Discriminator()].(string)
+
 	db.sqlMutex.Lock()
 	defer db.sqlMutex.Unlock()
-	if table, ok := db.tables.load(item[db.Discriminator()].(string)); !ok {
+
+	if table, ok := db.tables.load(itemType); !ok {
 		valErr, err := db.validateItemSchema(item)
 		if err != nil {
 			return errors.Wrap(err, "validation failed")
@@ -912,6 +917,7 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 		if len(valErr) > 0 {
 			return fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
 		}
+
 		if err := db.createTable(flatItem); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
@@ -1093,9 +1099,7 @@ func (db *JSONLite) schema(id string) (*jsonschema.RootSchema, error) {
 
 	var schemaData string
 	schema := &jsonschema.RootSchema{}
-	db.sqlMutex.RLock()
 	row := stmt.QueryRow(id)
-	db.sqlMutex.RUnlock()
 	if err := row.Scan(&schemaData); err != nil {
 		if err == sql.ErrNoRows {
 			return schema, nil
