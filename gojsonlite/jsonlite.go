@@ -180,64 +180,91 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) {
 
 // Insert adds a single item.
 func (db *JSONLite) Insert(item Item) (string, error) {
-	if _, ok := item[db.Discriminator()]; !ok {
-		return "", errors.New("missing discriminator in item")
+	uids, err := db.InsertBatch([]Item{item})
+	return uids[0], err
+}
+
+// InsertBatch adds a set of items. All items must have the same fields.
+func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+	firstItem := items[0]
+
+	if _, ok := firstItem[db.Discriminator()]; !ok {
+		return nil, errors.New("missing discriminator in item")
 	}
 
-	if _, ok := item["uid"]; !ok {
-		item["uid"] = item[db.Discriminator()].(string) + "--" + uuid.New().String()
+	if _, ok := firstItem["uid"]; !ok {
+		firstItem["uid"] = firstItem[db.Discriminator()].(string) + "--" + uuid.New().String()
 	}
 
-	flatItem, err := goflatten.Flatten(item)
+	flatItem, err := goflatten.Flatten(firstItem)
 	if err != nil {
-		return "", errors.Wrap(err, "could not flatten item")
+		return nil, errors.Wrap(err, "could not flatten item")
 	}
 
-	var placeholder []string
-	for range flatItem {
-		placeholder = append(placeholder, "?")
+	if err := db.ensureTable(flatItem, firstItem); err != nil {
+		return nil, errors.Wrap(err, "could not ensure table")
 	}
 
-	if err := db.ensureTable(flatItem, item); err != nil {
-		return "", errors.Wrap(err, "could not ensure table")
-	}
-
-	if db.Strict() {
-		valErr, err := db.validateItemSchema(item)
-		if err != nil {
-			return "", errors.Wrap(err, "validation failed")
-		}
-		if len(valErr) > 0 {
-			return "", fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
-		}
-	}
-
+	// get columnNames
 	var columnNames []string
+	for k := range flatItem {
+		columnNames = append(columnNames, k)
+	}
+
+	// get columnValues
+	var placeholderGrp []string
 	var columnValues []interface{}
-	for k, v := range flatItem {
-		columnNames = append(columnNames, "\""+k+"\"")
-		columnValues = append(columnValues, v)
+	var uids []string
+	for _, item := range items {
+		if db.Strict() {
+			db.sqlMutex.Lock()
+			valErr, err := db.validateItemSchema(item)
+			db.sqlMutex.Unlock()
+			if err != nil {
+				return nil, errors.Wrap(err, "validation failed")
+			}
+			if len(valErr) > 0 {
+				return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+			}
+		}
+
+		flatItem, err := goflatten.Flatten(item)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not flatten item")
+		}
+		if _, ok := flatItem["uid"]; !ok {
+			flatItem["uid"] = flatItem[db.Discriminator()].(string) + "--" + uuid.New().String()
+		}
+		for _, name := range columnNames {
+			columnValues = append(columnValues, flatItem[name])
+		}
+		placeholderGrp = append(placeholderGrp, "("+strings.Repeat("?,", len(flatItem)-1)+"?)")
+
+		uids = append(uids, flatItem["uid"].(string))
 	}
 
 	query := fmt.Sprintf(
-		"INSERT INTO \"%s\"(%s) VALUES (%s)",
-		item[db.Discriminator()].(string),
-		strings.Join(columnNames, ","),
-		strings.Join(placeholder, ","),
+		"INSERT INTO \"%s\"(%s) VALUES %s",
+		firstItem[db.Discriminator()].(string),
+		`"`+strings.Join(columnNames, `","`)+`"`,
+		strings.Join(placeholderGrp, ","),
 	) // #nosec
 	stmt, err := db.cursor.Prepare(query)
 	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
+		return nil, errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
 	}
 
 	db.sqlMutex.Lock()
 	defer db.sqlMutex.Unlock()
 	_, err = stmt.Exec(columnValues...)
 	if err != nil {
-		return "", errors.Wrap(err, "could not exec statement")
+		return nil, errors.Wrap(err, fmt.Sprint("could not exec statement", query, columnValues))
 	}
 
-	return item["uid"].(string), nil
+	return uids, nil
 }
 
 // Get retreives a single item.
@@ -605,7 +632,9 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 		e = append(e, "item needs to have a discriminator")
 	}
 
+	db.sqlMutex.Lock()
 	valErr, err := db.validateItemSchema(item)
+	db.sqlMutex.Unlock()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -685,14 +714,12 @@ func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
 		return e, errors.Wrap(err, "could not get root schema")
 	}
 
-	db.sqlMutex.Lock()
 	for _, schemaName := range db.schemas.keys() {
 		schema, _ := db.schemas.load(schemaName)
 		jsonschema.DefaultSchemaPool["jsonlite:"+schemaName] = &schema.Schema // TODO fill cache only once
 	}
 
 	err = rootSchema.FetchRemoteReferences()
-	db.sqlMutex.Unlock()
 	if err != nil {
 		return e, errors.Wrap(err, "could not FetchRemoteReferences")
 	}
@@ -877,7 +904,12 @@ func (db *JSONLite) getTables() (map[string]map[string]string, error) {
 }
 
 func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
-	if table, ok := db.tables.load(item[db.Discriminator()].(string)); !ok {
+	itemType := item[db.Discriminator()].(string)
+
+	db.sqlMutex.Lock()
+	defer db.sqlMutex.Unlock()
+
+	if table, ok := db.tables.load(itemType); !ok {
 		valErr, err := db.validateItemSchema(item)
 		if err != nil {
 			return errors.Wrap(err, "validation failed")
@@ -885,6 +917,7 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 		if len(valErr) > 0 {
 			return fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
 		}
+
 		if err := db.createTable(flatItem); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
@@ -926,8 +959,6 @@ func (db *JSONLite) createTable(flatItem Item) error {
 	}
 	columnText := strings.Join(columns, ", ")
 
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
 	_, err := db.cursor.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatItem[db.Discriminator()], columnText))
 	return err
 }
@@ -967,9 +998,7 @@ func (db *JSONLite) addMissingColumns(table string, columns map[string]interface
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
 		db.tables.innerstore(table, newColumn, sqlDataType)
-		db.sqlMutex.Lock()
 		_, err := db.cursor.Exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
-		db.sqlMutex.Unlock()
 		if err != nil {
 			return err
 		}
@@ -1070,9 +1099,7 @@ func (db *JSONLite) schema(id string) (*jsonschema.RootSchema, error) {
 
 	var schemaData string
 	schema := &jsonschema.RootSchema{}
-	db.sqlMutex.RLock()
 	row := stmt.QueryRow(id)
-	db.sqlMutex.RUnlock()
 	if err := row.Scan(&schemaData); err != nil {
 		if err == sql.ErrNoRows {
 			return schema, nil
