@@ -57,8 +57,24 @@
 //     forensicstore validate my.forensicstore
 package main
 
-import "github.com/forensicanalysis/forensicstore/cmd/forensicstore/subcommands"
+import (
+	"fmt"
+	"os"
+
+	"github.com/forensicanalysis/forensicstore/cmd"
+	"github.com/spf13/cobra"
+)
 
 func main() {
-	subcommands.Execute()
+	rootCmd := &cobra.Command{
+		Use:   "forensicstore",
+		Short: "Handle forensicstore files",
+	}
+	itemCmd := cmd.Item()
+	itemCmd.AddCommand(cmd.Create(), cmd.Validate())
+	rootCmd.AddCommand(itemCmd)
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
