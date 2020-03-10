@@ -20,10 +20,10 @@
 # Author(s): Jonas Plum
 
 import argparse
-import forensicstore
 import json
 import sys
 
+import forensicstore
 
 def main():
     root_parser = argparse.ArgumentParser(description='Handle forensicstores')
