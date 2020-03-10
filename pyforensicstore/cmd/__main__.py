@@ -25,6 +25,7 @@ import sys
 
 import forensicstore
 
+
 def main():
     root_parser = argparse.ArgumentParser(description='Handle forensicstores')
     root_subparsers = root_parser.add_subparsers(dest='root_command')
