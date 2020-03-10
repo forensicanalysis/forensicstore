@@ -44,7 +44,6 @@ import (
 	"github.com/forensicanalysis/forensicstore/gostore"
 	"github.com/forensicanalysis/fslib/aferotools/copy"
 	"github.com/google/uuid"
-	"github.com/imdario/mergo"
 	_ "github.com/mattn/go-sqlite3" // Import sqlite3 driver
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
@@ -376,62 +375,6 @@ func (db *JSONLite) Update(id string, partialItem Item) (string, error) {
 	*/
 }
 
-// ImportJSONLite merges another JSONLite into this one.
-func (db *JSONLite) ImportJSONLite(url string) (err error) {
-	// TODO: import items with "_path" on sublevel"…
-	// TODO: import does not need to unflatten and flatten
-
-	importStore, err := New(url, "")
-	if err != nil {
-		return err
-	}
-	items, err := importStore.All()
-	if err != nil {
-		return err
-	}
-	for _, item := range items {
-		for field := range item {
-			item := item
-			if strings.HasSuffix(field, "_path") {
-				dstPath, writer, err := db.StoreFile(item[field].(string))
-				if err != nil {
-					return err
-				}
-				reader, err := importStore.Open(filepath.Join(importStore.localStoreFolder, item[field].(string)))
-				if err != nil {
-					return err
-				}
-				if _, err = io.Copy(writer, reader); err != nil {
-					return err
-				}
-				if err := mergo.Merge(&item, Item{field: dstPath}); err != nil {
-					return err
-				}
-			}
-		}
-		_, err = db.Insert(item)
-		if err != nil {
-			return err
-		}
-	}
-	return err
-}
-
-// ExportJSONLite clones the JSONLite database.
-func (db *JSONLite) ExportJSONLite(url string) (err error) {
-	err = db.cursor.Close()
-	if err != nil {
-		return err
-	}
-	remoteFS, remoteFolder, _ := toFS(url)
-	err = copy.Directory(db.localFS, remoteFS, db.localStoreFolder, remoteFolder)
-	if err != nil {
-		return err
-	}
-	db.cursor, err = sql.Open("sqlite3", db.localDBFile)
-	return err
-}
-
 // StoreFile adds a file to the database folder.
 func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.File, err error) {
 	err = db.MkdirAll(filepath.Join(db.localStoreFolder, filepath.Dir(filePath)), 0755)
@@ -709,7 +652,7 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
 	e = []string{}
 
-	rootSchema, err := db.schema(item[db.Discriminator()].(string))
+	rootSchema, err := db.Schema(item[db.Discriminator()].(string))
 	if err != nil {
 		return e, errors.Wrap(err, "could not get root schema")
 	}
@@ -1087,7 +1030,7 @@ func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	return nil
 }
 
-func (db *JSONLite) schema(id string) (*jsonschema.RootSchema, error) {
+func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	if schema, ok := db.schemas.load(id); ok {
 		return schema, nil
 	}

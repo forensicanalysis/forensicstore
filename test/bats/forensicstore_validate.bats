@@ -32,7 +32,7 @@ teardown() {
 }
 
 @test "forensicstore validate insert invalid item" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -43,7 +43,7 @@ teardown() {
 }
 
 @test "forensicstore validate parent file" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -51,7 +51,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
 
     run cat $TESTDIR/tmp.json
     echo $output
@@ -66,7 +66,7 @@ teardown() {
 }
 
 @test "forensicstore validate missing file" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -74,7 +74,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
     run jq '. | length' $TESTDIR/tmp.json
     echo $output
     [ "$output" = "1" ]
@@ -85,7 +85,7 @@ teardown() {
 }
 
 @test "forensicstore validate additional file" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -93,7 +93,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
     run jq '. | length' $TESTDIR/tmp.json
     echo $output
     [ "$output" = "1" ]
@@ -104,7 +104,7 @@ teardown() {
 }
 
 @test "forensicstore validate wrong size" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -116,8 +116,8 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
 
     run cat $TESTDIR/tmp.json
     echo $output
@@ -134,7 +134,7 @@ teardown() {
 
 
 @test "forensicstore validate wrong hash" {
-    run forensicstore item create $TESTDIR/tmp.forensicstore
+    run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -146,7 +146,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    forensicstore item validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
 
     run cat $TESTDIR/tmp.json
     echo $output

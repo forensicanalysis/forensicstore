@@ -19,31 +19,16 @@
 //
 // Author(s): Jonas Plum
 
-package subcommands
+package cmd
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/forensicanalysis/forensicstore/goforensicstore"
 	"github.com/spf13/cobra"
-	"strings"
 )
-
-func createCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "create",
-		Short: "Create a forensicstore",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			storeName := cmd.Flags().Args()[0]
-			store, err := goforensicstore.NewJSONLite(storeName)
-			if err != nil {
-				return err
-			}
-			return store.Close()
-		},
-	}
-}
 
 func getCommand() *cobra.Command {
 	return &cobra.Command{
@@ -157,61 +142,4 @@ func updateCommand() *cobra.Command {
 			return errors.New("not implemented")
 		},
 	}
-}
-
-func importCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "import",
-		Short: "Import another jsonlite file",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			url := cmd.Flags().Args()[0]
-			storeName := cmd.Flags().Args()[1]
-			store, err := goforensicstore.NewJSONLite(storeName)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-
-			if err = store.ImportJSONLite(url); err != nil {
-				fmt.Println(err)
-				return err
-			}
-			return nil
-		},
-	}
-}
-
-func validateCommand() *cobra.Command {
-	var noFail bool
-	validateCommand := &cobra.Command{
-		Use:   "validate",
-		Short: "Validate all items",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			storeName := cmd.Flags().Args()[0]
-
-			store, err := goforensicstore.NewJSONLite(storeName)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-			valErr, err := store.Validate()
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-			if len(valErr) > 0 {
-				for i, v := range valErr {
-					valErr[i] = strings.Replace(v, "\"", "\\\"", -1)
-				}
-				fmt.Printf("[\"%s\"]\n", strings.Join(valErr, "\", \""))
-				if noFail {
-					return nil
-				}
-				return err
-			}
-			return nil
-		},
-	}
-	validateCommand.Flags().BoolVar(&noFail, "no-fail", false, "return exit code 0")
-	return validateCommand
 }

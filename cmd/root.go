@@ -19,45 +19,77 @@
 //
 // Author(s): Jonas Plum
 
-package subcommands
+package cmd
 
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/forensicanalysis/forensicstore/goforensicstore"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
-// Execute is the entrypoint for the forensicstore commandline tool.
-func Execute() {
-	rootCmd := rootCommand()
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func Create() *cobra.Command {
+	return &cobra.Command{
+		Use:   "create",
+		Short: "Create a forensicstore",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			storeName := cmd.Flags().Args()[0]
+			store, err := goforensicstore.NewJSONLite(storeName)
+			if err != nil {
+				return err
+			}
+			return store.Close()
+		},
 	}
 }
 
-func rootCommand() *cobra.Command {
-	rootCmd := &cobra.Command{
-		Use:   "forensicstore",
-		Short: "Handle forensicstore files",
-	}
-	rootCmd.AddCommand(itemCommand()) //, serveCommand(), uiCommand())
-	return rootCmd
-}
-
-func itemCommand() *cobra.Command {
+func Item() *cobra.Command {
 	itemCommand := &cobra.Command{
 		Use:   "item",
 		Short: "Manipulate the forensicstore via the commandline",
 		Args:  requireOneStore,
 	}
-	itemCommand.AddCommand(
-		createCommand(), getCommand(), selectCommand(), allCommand(),
-		insertCommand(), updateCommand(), importCommand(), validateCommand(),
-	)
+	itemCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
+		insertCommand(), updateCommand())
 	return itemCommand
+}
+
+func Validate() *cobra.Command {
+	var noFail bool
+	validateCommand := &cobra.Command{
+		Use:   "validate",
+		Short: "Validate all items",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			storeName := cmd.Flags().Args()[0]
+
+			store, err := goforensicstore.NewJSONLite(storeName)
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			valErr, err := store.Validate()
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+			if len(valErr) > 0 {
+				for i, v := range valErr {
+					valErr[i] = strings.Replace(v, "\"", "\\\"", -1)
+				}
+				fmt.Printf("[\"%s\"]\n", strings.Join(valErr, "\", \""))
+				if noFail {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+	}
+	validateCommand.Flags().BoolVar(&noFail, "no-fail", false, "return exit code 0")
+	return validateCommand
 }
 
 /*
