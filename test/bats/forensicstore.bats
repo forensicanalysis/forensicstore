@@ -34,7 +34,7 @@ teardown() {
   run forensicstore create $TESTDIR/init_create.forensicstore
   echo $output
   [ "$status" -eq 0 ]
-  forensicstore item validate $TESTDIR/init_create.forensicstore
+  forensicstore validate $TESTDIR/init_create.forensicstore
 
   [ -f "$TESTDIR/init_create.forensicstore/item.db" ]
 }
