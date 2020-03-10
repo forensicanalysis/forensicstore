@@ -34,7 +34,7 @@ def main():
     subparsers = parser.add_subparsers(dest='command')
     subparsers.required = True
 
-    create_parser = subparsers.add_parser("create")
+    create_parser = root_subparsers.add_parser("create")
     create_parser.add_argument('store')
 
     get_parser = subparsers.add_parser("get")
@@ -61,7 +61,7 @@ def main():
     import_parser.add_argument('url')
     import_parser.add_argument('store')
 
-    validate_parser = subparsers.add_parser("validate")
+    validate_parser = root_subparsers.add_parser("validate")
     validate_parser.add_argument('store')
     validate_parser.add_argument('--no-fail', action='store_true', dest="nofail")
 

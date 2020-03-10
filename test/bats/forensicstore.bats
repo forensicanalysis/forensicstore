@@ -31,7 +31,7 @@ teardown() {
 }
 
 @test "jsonlite create" {
-  run forensicstore item create $TESTDIR/init_create.forensicstore
+  run forensicstore create $TESTDIR/init_create.forensicstore
   echo $output
   [ "$status" -eq 0 ]
   forensicstore item validate $TESTDIR/init_create.forensicstore
@@ -102,7 +102,7 @@ teardown() {
 
     # verify inserted item with id
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -125,7 +125,7 @@ teardown() {
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -134,7 +134,7 @@ teardown() {
 
     # verify inserted item with id 11
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "foo": "bar", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -155,7 +155,7 @@ teardown() {
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "size": 0, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -176,7 +176,7 @@ teardown() {
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -197,7 +197,7 @@ teardown() {
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
-    
+
     echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
@@ -225,36 +225,36 @@ teardown() {
 #     [ "$status" -eq 0 ]
 # }
 
-@test "jsonlite import jsonlite" {
-    mkdir $TESTDIR/1
-    forensicstore item create $TESTDIR/1/tmp.forensicstore
-
-    echo 'aaa' > $TESTDIR/1/tmp.forensicstore/testfile.txt
-    forensicstore item insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/1/tmp.forensicstore
-
-    mkdir $TESTDIR/2
-    forensicstore item create $TESTDIR/2/tmp.forensicstore
-    echo 'bbb' > $TESTDIR/2/tmp.forensicstore/testfile.txt
-    forensicstore item insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/2/tmp.forensicstore
-
-    forensicstore item import $TESTDIR/2/tmp.forensicstore $TESTDIR/1/tmp.forensicstore
-
-    run cat $TESTDIR/1/tmp.forensicstore/testfile.txt
-    echo $output
-    [ "$output" = "aaa" ]
-
-    run cat $TESTDIR/1/tmp.forensicstore/testfile_0.txt
-    echo $output
-    [ "$output" = "bbb" ]
-}
+# @test "jsonlite import jsonlite" {
+#     mkdir $TESTDIR/1
+#     forensicstore create $TESTDIR/1/tmp.forensicstore
+#
+#     echo 'aaa' > $TESTDIR/1/tmp.forensicstore/testfile.txt
+#     forensicstore item insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/1/tmp.forensicstore
+#
+#     mkdir $TESTDIR/2
+#     forensicstore create $TESTDIR/2/tmp.forensicstore
+#     echo 'bbb' > $TESTDIR/2/tmp.forensicstore/testfile.txt
+#     forensicstore item insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/2/tmp.forensicstore
+#
+#     forensicstore import $TESTDIR/2/tmp.forensicstore $TESTDIR/1/tmp.forensicstore
+#
+#     run cat $TESTDIR/1/tmp.forensicstore/testfile.txt
+#     echo $output
+#     [ "$output" = "aaa" ]
+#
+#     run cat $TESTDIR/1/tmp.forensicstore/testfile_0.txt
+#     echo $output
+#     [ "$output" = "bbb" ]
+# }
 
 # @test "jsonlite insert quotes" {
-#     forensicstore item create $TESTDIR/quotes.forensicstore
+#     forensicstore create $TESTDIR/quotes.forensicstore
 #     forensicstore item insert '{"type": "foo"}' 10 $TESTDIR/quotes.forensicstore
 #     forensicstore item update foo 10 '{"foo": "@\\"%ProgramFiles%\\\\Windows Journal\\\\Journal.exe\\",-3072"}' $TESTDIR/quotes.forensicstore
 
 #     # verify inserted item with id 10
-#     forensicstore item get foo 10 $TESTDIR/quotes.forensicstore > $TESTDIR/elem.json 
+#     forensicstore item get foo 10 $TESTDIR/quotes.forensicstore > $TESTDIR/elem.json
 #     run jq '.["foo"]' $TESTDIR/elem.json
 #     [ "$status" -eq 0 ]
 #     echo "asd"

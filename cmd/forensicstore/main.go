@@ -70,9 +70,7 @@ func main() {
 		Use:   "forensicstore",
 		Short: "Handle forensicstore files",
 	}
-	itemCmd := cmd.Item()
-	itemCmd.AddCommand(cmd.Create(), cmd.Validate())
-	rootCmd.AddCommand(itemCmd)
+	rootCmd.AddCommand(cmd.Item(), cmd.Create(), cmd.Validate())
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
