@@ -510,9 +510,9 @@ func (db *JSONLite) SetStrict(strict bool) {
 #   Validate
 ################################ */
 
-// Validate checks the database for variuos flaws.
-func (db *JSONLite) Validate() (e []string, err error) {
-	e = []string{}
+// Validate checks the database for various flaws.
+func (db *JSONLite) Validate() (flaws []string, err error) {
+	flaws = []string{}
 	expectedFiles := map[string]bool{}
 	expectedFiles[filepath.FromSlash("/item.db")] = true
 	// expectedFiles["/item.db-journal"] = true
@@ -526,7 +526,7 @@ func (db *JSONLite) Validate() (e []string, err error) {
 		if err != nil {
 			return nil, err
 		}
-		e = append(e, validationErrors...)
+		flaws = append(flaws, validationErrors...)
 		for _, itemExpectedFile := range itemExpectedFiles {
 			expectedFiles[filepath.FromSlash(itemExpectedFile)] = true
 		}
@@ -551,7 +551,7 @@ func (db *JSONLite) Validate() (e []string, err error) {
 	}
 
 	if len(additionalFiles) > 0 {
-		e = append(e, fmt.Sprintf("additional files: ('%s')", strings.Join(additionalFiles, "', '")))
+		flaws = append(flaws, fmt.Sprintf("additional files: ('%s')", strings.Join(additionalFiles, "', '")))
 	}
 
 	var missingFiles []string
@@ -562,17 +562,17 @@ func (db *JSONLite) Validate() (e []string, err error) {
 	}
 
 	if len(missingFiles) > 0 {
-		e = append(e, fmt.Sprintf("missing files: ('%s')", strings.Join(missingFiles, "', '")))
+		flaws = append(flaws, fmt.Sprintf("missing files: ('%s')", strings.Join(missingFiles, "', '")))
 	}
-	return e, nil
+	return flaws, nil
 }
 
-func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []string, err error) {
-	e = []string{}
+func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) {
+	flaws = []string{}
 	itemExpectedFiles = []string{}
 
 	if _, ok := item[db.Discriminator()]; !ok {
-		e = append(e, "item needs to have a discriminator")
+		flaws = append(flaws, "item needs to have a discriminator")
 	}
 
 	db.sqlMutex.Lock()
@@ -581,14 +581,14 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 	if err != nil {
 		return nil, nil, err
 	}
-	e = append(e, valErr...)
+	flaws = append(flaws, valErr...)
 
 	for field := range item {
 		if strings.HasSuffix(field, "_path") {
 			exportPath := item[field].(string)
 
 			if strings.Contains(exportPath, "..") {
-				e = append(e, fmt.Sprintf("'..' in %s", exportPath))
+				flaws = append(flaws, fmt.Sprintf("'..' in %s", exportPath))
 				continue
 			}
 
@@ -608,7 +608,7 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 					return nil, nil, err
 				}
 				if int64(size.(float64)) != fi.Size() {
-					e = append(e, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), size))
+					flaws = append(flaws, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), size))
 				}
 			}
 
@@ -623,7 +623,7 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 					case "SHA-1":
 						h = sha1.New() // #nosec
 					default:
-						e = append(e, fmt.Sprintf("unsupported hash %s for %s", algorithm, exportPath))
+						flaws = append(flaws, fmt.Sprintf("unsupported hash %s for %s", algorithm, exportPath))
 						continue
 					}
 
@@ -639,22 +639,22 @@ func (db *JSONLite) validateItem(item Item) (e []string, itemExpectedFiles []str
 					}
 
 					if fmt.Sprintf("%x", h.Sum(nil)) != value {
-						e = append(e, fmt.Sprintf("hashvalue mismatch %s for %s", algorithm, exportPath))
+						flaws = append(flaws, fmt.Sprintf("hashvalue mismatch %s for %s", algorithm, exportPath))
 					}
 				}
 			}
 		}
 	}
 
-	return e, itemExpectedFiles, nil
+	return flaws, itemExpectedFiles, nil
 }
 
-func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
-	e = []string{}
+func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
+	flaws = []string{}
 
 	rootSchema, err := db.Schema(item[db.Discriminator()].(string))
 	if err != nil {
-		return e, errors.Wrap(err, "could not get root schema")
+		return flaws, errors.Wrap(err, "could not get root schema")
 	}
 
 	for _, schemaName := range db.schemas.keys() {
@@ -664,7 +664,7 @@ func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
 
 	err = rootSchema.FetchRemoteReferences()
 	if err != nil {
-		return e, errors.Wrap(err, "could not FetchRemoteReferences")
+		return flaws, errors.Wrap(err, "could not FetchRemoteReferences")
 	}
 
 	var i map[string]interface{} = item
@@ -676,14 +676,10 @@ func (db *JSONLite) validateItemSchema(item Item) (e []string, err error) {
 			id = " " + uid.(string)
 		}
 
-		e = append(e, errors.Wrap(err, "failed to validate item"+id).Error())
+		flaws = append(flaws, errors.Wrap(err, "failed to validate item"+id).Error())
 	}
-	return e, nil
+	return flaws, nil
 }
-
-/* ################################
-#   Deprecated
-################################ */
 
 // Select retreives all items of a discriminated attribute.
 func (db *JSONLite) Select(itemType string) (items []Item, err error) {
