@@ -46,7 +46,7 @@ type Store interface {
 	StoreFile(filePath string) (storePath string, file afero.File, err error)
 	LoadFile(path string) (file afero.File, err error)
 
-	Validate() (e []string, err error)
+	Validate() (flaws []string, err error)
 
 	SetSchema(id string, schema *jsonschema.RootSchema) (err error)
 	Schema(id string) (schema *jsonschema.RootSchema, err error)
