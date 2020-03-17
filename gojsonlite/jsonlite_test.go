@@ -417,7 +417,8 @@ func TestJSONLite_Select(t *testing.T) {
 		url string
 	}
 	type args struct {
-		itemType string
+		itemType   string
+		conditions []map[string]string
 	}
 	tests := []struct {
 		name      string
@@ -426,7 +427,8 @@ func TestJSONLite_Select(t *testing.T) {
 		wantItems int
 		wantErr   bool
 	}{
-		{"Select", fields{testDir + ExampleStore}, args{"file"}, 2, false},
+		{"Select", fields{testDir + ExampleStore}, args{"file", nil}, 2, false},
+		{"Select with filter", fields{testDir + ExampleStore}, args{"file", []map[string]string{{"name": "foo.doc"}}}, 1, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -436,7 +438,7 @@ func TestJSONLite_Select(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			gotItems, err := db.Select(tt.args.itemType)
+			gotItems, err := db.Select(tt.args.itemType, tt.args.conditions)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("JSONLite.Select() error = %v, wantErr %v", err, tt.wantErr)
 				return

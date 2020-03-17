@@ -681,9 +681,28 @@ func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
 	return flaws, nil
 }
 
-// Select retreives all items of a discriminated attribute.
-func (db *JSONLite) Select(itemType string) (items []Item, err error) {
-	stmt, err := db.cursor.Prepare(fmt.Sprintf("SELECT * FROM \"%s\"", itemType)) // #nosec
+// Select retrieves all items of a discriminated attribute.
+func (db *JSONLite) Select(itemType string, conditions []map[string]string) (items []Item, err error) {
+
+	var ors []string
+	for _, condition := range conditions {
+		var ands []string
+		for key, value := range condition {
+			if key != "type" {
+				ands = append(ands, fmt.Sprintf("\"%s\" LIKE \"%s\"", key, value))
+			}
+		}
+		if len(ands) > 0 {
+			ors = append(ors, "("+strings.Join(ands, " AND ")+")")
+		}
+	}
+
+	query := fmt.Sprintf("SELECT * FROM \"%s\"", itemType)
+	if len(ors) > 0 {
+		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR "))
+	}
+
+	stmt, err := db.cursor.Prepare(query) // #nosec
 	if err != nil {
 		return nil, err
 	}
@@ -722,7 +741,7 @@ func (db *JSONLite) All() (items []Item, err error) {
 		if strings.HasPrefix(s, "_") {
 			continue
 		}
-		selectItems, err := db.Select(s)
+		selectItems, err := db.Select(s, nil)
 		if err != nil {
 			return nil, err
 		}

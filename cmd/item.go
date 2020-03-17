@@ -63,7 +63,7 @@ func selectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			item, err := store.Select(itemType)
+			item, err := store.Select(itemType, nil)
 			if err != nil {
 				return err
 			}
