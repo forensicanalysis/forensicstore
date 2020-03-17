@@ -39,7 +39,7 @@ type Store interface {
 	InsertBatch(items []Item) ([]string, error)
 	Get(id string) (item Item, err error)
 	Update(id string, partialItem Item) (string, error)
-	Select(itemType string) (items []Item, err error)
+	Select(itemType string, conditions []map[string]string) (items []Item, err error)
 	All() (items []Item, err error)
 	Close() (err error)
 
