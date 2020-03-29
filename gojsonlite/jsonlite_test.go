@@ -429,6 +429,7 @@ func TestJSONLite_Select(t *testing.T) {
 	}{
 		{"Select", fields{testDir + ExampleStore}, args{"file", nil}, 2, false},
 		{"Select with filter", fields{testDir + ExampleStore}, args{"file", []map[string]string{{"name": "foo.doc"}}}, 1, false},
+		{"Select not existing", fields{testDir + ExampleStore}, args{"xxx", nil}, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
