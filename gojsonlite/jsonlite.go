@@ -704,6 +704,9 @@ func (db *JSONLite) Select(itemType string, conditions []map[string]string) (ite
 
 	stmt, err := db.cursor.Prepare(query) // #nosec
 	if err != nil {
+		if strings.Contains(err.Error(), "no such table") {
+			return nil, nil
+		}
 		return nil, err
 	}
 
