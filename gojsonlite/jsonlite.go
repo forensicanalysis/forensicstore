@@ -40,14 +40,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/forensicanalysis/forensicstore/goflatten"
-	"github.com/forensicanalysis/forensicstore/gostore"
-	"github.com/forensicanalysis/fslib/aferotools/copy"
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3" // Import sqlite3 driver
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
 	"github.com/spf13/afero"
+
+	"github.com/forensicanalysis/forensicstore/goflatten"
+	"github.com/forensicanalysis/forensicstore/gostore"
+	"github.com/forensicanalysis/fslib/aferotools/copy"
 )
 
 // Item is a storeable element.

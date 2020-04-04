@@ -4,7 +4,7 @@
  <a href="https://{{.ModulePath}}/actions"><img src="https://{{.ModulePath}}/workflows/CI/badge.svg" alt="build" /></a>
  <a href="https://codecov.io/gh/{{.RelModulePath}}"><img src="https://codecov.io/gh/{{.RelModulePath}}/branch/master/graph/badge.svg" alt="coverage" /></a>
  <a href="https://goreportcard.com/report/{{.ModulePath}}"><img src="https://goreportcard.com/badge/{{.ModulePath}}" alt="report" /></a>
- <a href="https://pkg.go.dev/{{.ModulePath}}"><img src="https://godoc.org/{{.ModulePath}}?status.svg" alt="doc" /></a>
+ <a href="https://pkg.go.dev/{{.ModulePath}}"><img src="https://img.shields.io/badge/go.dev-documentation-007d9c?logo=go&logoColor=white" alt="doc" /></a>
 </p>
 
 
@@ -34,7 +34,7 @@ if __name__ == '__main__':
     store.close()
 ```
 
-The full documentation can be found in [the documentation](TODO).
+The full documentation can be found in [the documentation](https://forensicanalysis.github.io/forensicstore/pyforensicstore/docs/html/).
 
 ## Go package
 

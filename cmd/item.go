@@ -26,8 +26,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
 	"github.com/spf13/cobra"
+
+	"github.com/forensicanalysis/forensicstore/goforensicstore"
 )
 
 func getCommand() *cobra.Command {
