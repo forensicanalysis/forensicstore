@@ -25,8 +25,9 @@ import os
 import shutil
 import tempfile
 
-import forensicstore
 import pytest
+
+import forensicstore
 
 from .example_forensicstore import EXAMPLE_FORENSICSTORE
 

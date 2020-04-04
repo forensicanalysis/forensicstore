@@ -107,7 +107,7 @@ jobs:
 
     # Lint and test pyforensicstore
     - run: pylint pyjsonlite pyforensicstore --rcfile test/python/.pylintrc
-    - run: pytest -v --cov-config .coveragerc --cov-report=xml --cov=forensicstore --cov=jsonlite test/python
+    - run: pytest -v --cov-report=xml --cov=forensicstore --cov=jsonlite test/python
       shell: bash
 
     - name: Upload coverage
