@@ -22,8 +22,9 @@
 package gojsonlite
 
 import (
-	"github.com/qri-io/jsonschema"
 	"sync"
+
+	"github.com/qri-io/jsonschema"
 )
 
 type tableMap struct {

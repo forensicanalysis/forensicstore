@@ -61,8 +61,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/forensicanalysis/forensicstore/cmd"
 	"github.com/spf13/cobra"
+
+	"github.com/forensicanalysis/forensicstore/cmd"
 )
 
 func main() {

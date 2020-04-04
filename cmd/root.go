@@ -26,9 +26,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+
+	"github.com/forensicanalysis/forensicstore/goforensicstore"
 )
 
 func Create() *cobra.Command {
