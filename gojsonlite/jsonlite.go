@@ -37,6 +37,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -461,7 +462,7 @@ func (db *JSONLite) Close() error {
 #   Options & Schemas
 ################################ */
 
-// Discriminator gets the json attribute that seperates objects into tables.
+// Discriminator gets the json attribute that separates objects into tables.
 func (db *JSONLite) Discriminator() string {
 	value, err := db.option("discriminator")
 	if err != nil {
@@ -475,7 +476,7 @@ func (db *JSONLite) Discriminator() string {
 	return value.(string)
 }
 
-// SetDiscriminator sets the json attribute that seperates objects into tables.
+// SetDiscriminator sets the json attribute that separates objects into tables.
 func (db *JSONLite) SetDiscriminator(discriminator string) {
 	err := db.setOption("discriminator", discriminator)
 	if err != nil {
@@ -684,7 +685,6 @@ func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
 
 // Select retrieves all items of a discriminated attribute.
 func (db *JSONLite) Select(itemType string, conditions []map[string]string) (items []Item, err error) {
-
 	var ors []string
 	for _, condition := range conditions {
 		var ands []string
@@ -698,9 +698,9 @@ func (db *JSONLite) Select(itemType string, conditions []map[string]string) (ite
 		}
 	}
 
-	query := fmt.Sprintf("SELECT * FROM \"%s\"", itemType)
+	query := fmt.Sprintf("SELECT * FROM \"%s\"", itemType) // #nosec
 	if len(ors) > 0 {
-		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR "))
+		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR ")) // #nosec
 	}
 
 	stmt, err := db.cursor.Prepare(query) // #nosec
@@ -957,6 +957,7 @@ func getSQLDataType(value interface{}) string {
 }
 
 func (db *JSONLite) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
+	sort.Strings(newColumns)
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
 		db.tables.innerstore(table, newColumn, sqlDataType)
@@ -1049,6 +1050,7 @@ func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	return nil
 }
 
+// Schema gets a single schema from the database.
 func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	if schema, ok := db.schemas.load(id); ok {
 		return schema, nil

@@ -63,7 +63,6 @@ func NewJSONLite(remoteURL string) (*ForensicStore, error) {
 
 	if store.NewDB {
 		for name, content := range assets.FS.Files {
-
 			schema := &jsonschema.RootSchema{}
 			if err := json.Unmarshal(content, schema); err != nil {
 				return nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
@@ -74,7 +73,6 @@ func NewJSONLite(remoteURL string) (*ForensicStore, error) {
 				return nil, err
 			}
 		}
-
 	}
 
 	return New(store)
@@ -86,7 +84,7 @@ func (db *ForensicStore) InsertStruct(item interface{}) (string, error) {
 	return ids[0], err
 }
 
-// InsertStruct converts a Go struct to a map and inserts it.
+// InsertStructBatch adds a list of structs to the forensicstore.
 func (db *ForensicStore) InsertStructBatch(items []interface{}) ([]string, error) {
 	var ms []gostore.Item
 	for _, item := range items {
