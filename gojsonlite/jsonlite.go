@@ -315,67 +315,68 @@ func (db *JSONLite) Query(query string) (items []Item, err error) {
 // Update adds new keys to an item.
 func (db *JSONLite) Update(id string, partialItem Item) (string, error) {
 	return "", errors.New("not yet implemented")
-	/*
-		updatedItem, err := db.Get(id)
-		if err != nil {
-			return "", err
-		}
-		oldDiscriminator := updatedItem[db.Discriminator()].(string)
-		if err := mergo.Merge(&updatedItem, partialItem); err != nil {
-			return "", err
-		}
-
-		parts := strings.Split(id, "--")
-		itemUUID := parts[1]
-
-		if val, ok := partialItem[db.Discriminator()]; ok && oldDiscriminator != partialItem[db.Discriminator()].(string) {
-			updatedItem["uid"] = val.(string) + "--" + itemUUID
-
-			stmt, err := db.cursor.Prepare(fmt.Sprintf("DELETE FROM %s WHERE uid=?", oldDiscriminator)) // #nosec
-			if err != nil {
-				return "", err
-			}
-
-			_, err = stmt.Exec(id)
-			if err != nil {
-				return "", err
-			}
-			return db.Insert(updatedItem)
-		}
-
-		flatItem, err := goflatten.Flatten(updatedItem)
-		if err != nil {
-			return "", err
-		}
-
-		err = db.ensureTable(flatItem, updatedItem)
-		if err != nil {
-			return "", err
-		}
-
-		values := []interface{}{}
-		replacements := []string{}
-		for k, v := range flatItem {
-			replacements = append(replacements, fmt.Sprintf("\"%s\"=?", k))
-			values = append(values, v)
-		}
-		replace := strings.Join(replacements, ", ")
-
-		values = append(values, id)
-		table := updatedItem[db.Discriminator()]
-		stmt, err := db.cursor.Prepare(fmt.Sprintf("UPDATE %s SET %s WHERE uid=?", table, replace)) // #nosec
-		if err != nil {
-			return "", err
-		}
-
-		_, err = stmt.Exec(values)
-		if err != nil {
-			return "", err
-		}
-
-		return updatedItem["uid"].(string), nil
-	*/
 }
+
+/*
+	updatedItem, err := db.Get(id)
+	if err != nil {
+		return "", err
+	}
+	oldDiscriminator := updatedItem[db.Discriminator()].(string)
+	if err := mergo.Merge(&updatedItem, partialItem); err != nil {
+		return "", err
+	}
+
+	parts := strings.Split(id, "--")
+	itemUUID := parts[1]
+
+	if val, ok := partialItem[db.Discriminator()]; ok && oldDiscriminator != partialItem[db.Discriminator()].(string) {
+		updatedItem["uid"] = val.(string) + "--" + itemUUID
+
+		stmt, err := db.cursor.Prepare(fmt.Sprintf("DELETE FROM %s WHERE uid=?", oldDiscriminator)) // #nosec
+		if err != nil {
+			return "", err
+		}
+
+		_, err = stmt.Exec(id)
+		if err != nil {
+			return "", err
+		}
+		return db.Insert(updatedItem)
+	}
+
+	flatItem, err := goflatten.Flatten(updatedItem)
+	if err != nil {
+		return "", err
+	}
+
+	err = db.ensureTable(flatItem, updatedItem)
+	if err != nil {
+		return "", err
+	}
+
+	values := []interface{}{}
+	replacements := []string{}
+	for k, v := range flatItem {
+		replacements = append(replacements, fmt.Sprintf("\"%s\"=?", k))
+		values = append(values, v)
+	}
+	replace := strings.Join(replacements, ", ")
+
+	values = append(values, id)
+	table := updatedItem[db.Discriminator()]
+	stmt, err := db.cursor.Prepare(fmt.Sprintf("UPDATE %s SET %s WHERE uid=?", table, replace)) // #nosec
+	if err != nil {
+		return "", err
+	}
+
+	_, err = stmt.Exec(values)
+	if err != nil {
+		return "", err
+	}
+
+	return updatedItem["uid"].(string), nil
+*/
 
 // StoreFile adds a file to the database folder.
 func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.File, err error) {
