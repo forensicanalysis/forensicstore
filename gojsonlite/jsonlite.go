@@ -94,7 +94,7 @@ func toFS(url string) (fs afero.Fs, path string, isLocal bool) {
 }
 
 // New creates or opens a JSONLite database.
-func New(remoteURL string, discriminator string) (*JSONLite, error) {
+func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:gocyclo
 	db := &JSONLite{}
 	if remoteURL[len(remoteURL)-1:] == "/" {
 		remoteURL = remoteURL[:len(remoteURL)-1]
@@ -186,7 +186,7 @@ func (db *JSONLite) Insert(item Item) (string, error) {
 }
 
 // InsertBatch adds a set of items. All items must have the same fields.
-func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
+func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocyclo
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -569,7 +569,7 @@ func (db *JSONLite) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) {
+func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) { // nolint:gocyclo
 	flaws = []string{}
 	itemExpectedFiles = []string{}
 
