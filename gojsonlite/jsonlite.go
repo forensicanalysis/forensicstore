@@ -37,6 +37,7 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 
@@ -93,7 +94,7 @@ func toFS(url string) (fs afero.Fs, path string, isLocal bool) {
 }
 
 // New creates or opens a JSONLite database.
-func New(remoteURL string, discriminator string) (*JSONLite, error) {
+func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:gocyclo
 	db := &JSONLite{}
 	if remoteURL[len(remoteURL)-1:] == "/" {
 		remoteURL = remoteURL[:len(remoteURL)-1]
@@ -185,7 +186,7 @@ func (db *JSONLite) Insert(item Item) (string, error) {
 }
 
 // InsertBatch adds a set of items. All items must have the same fields.
-func (db *JSONLite) InsertBatch(items []Item) ([]string, error) {
+func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocyclo
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -314,67 +315,68 @@ func (db *JSONLite) Query(query string) (items []Item, err error) {
 // Update adds new keys to an item.
 func (db *JSONLite) Update(id string, partialItem Item) (string, error) {
 	return "", errors.New("not yet implemented")
-	/*
-		updatedItem, err := db.Get(id)
-		if err != nil {
-			return "", err
-		}
-		oldDiscriminator := updatedItem[db.Discriminator()].(string)
-		if err := mergo.Merge(&updatedItem, partialItem); err != nil {
-			return "", err
-		}
-
-		parts := strings.Split(id, "--")
-		itemUUID := parts[1]
-
-		if val, ok := partialItem[db.Discriminator()]; ok && oldDiscriminator != partialItem[db.Discriminator()].(string) {
-			updatedItem["uid"] = val.(string) + "--" + itemUUID
-
-			stmt, err := db.cursor.Prepare(fmt.Sprintf("DELETE FROM %s WHERE uid=?", oldDiscriminator)) // #nosec
-			if err != nil {
-				return "", err
-			}
-
-			_, err = stmt.Exec(id)
-			if err != nil {
-				return "", err
-			}
-			return db.Insert(updatedItem)
-		}
-
-		flatItem, err := goflatten.Flatten(updatedItem)
-		if err != nil {
-			return "", err
-		}
-
-		err = db.ensureTable(flatItem, updatedItem)
-		if err != nil {
-			return "", err
-		}
-
-		values := []interface{}{}
-		replacements := []string{}
-		for k, v := range flatItem {
-			replacements = append(replacements, fmt.Sprintf("\"%s\"=?", k))
-			values = append(values, v)
-		}
-		replace := strings.Join(replacements, ", ")
-
-		values = append(values, id)
-		table := updatedItem[db.Discriminator()]
-		stmt, err := db.cursor.Prepare(fmt.Sprintf("UPDATE %s SET %s WHERE uid=?", table, replace)) // #nosec
-		if err != nil {
-			return "", err
-		}
-
-		_, err = stmt.Exec(values)
-		if err != nil {
-			return "", err
-		}
-
-		return updatedItem["uid"].(string), nil
-	*/
 }
+
+/*
+	updatedItem, err := db.Get(id)
+	if err != nil {
+		return "", err
+	}
+	oldDiscriminator := updatedItem[db.Discriminator()].(string)
+	if err := mergo.Merge(&updatedItem, partialItem); err != nil {
+		return "", err
+	}
+
+	parts := strings.Split(id, "--")
+	itemUUID := parts[1]
+
+	if val, ok := partialItem[db.Discriminator()]; ok && oldDiscriminator != partialItem[db.Discriminator()].(string) {
+		updatedItem["uid"] = val.(string) + "--" + itemUUID
+
+		stmt, err := db.cursor.Prepare(fmt.Sprintf("DELETE FROM %s WHERE uid=?", oldDiscriminator)) // #nosec
+		if err != nil {
+			return "", err
+		}
+
+		_, err = stmt.Exec(id)
+		if err != nil {
+			return "", err
+		}
+		return db.Insert(updatedItem)
+	}
+
+	flatItem, err := goflatten.Flatten(updatedItem)
+	if err != nil {
+		return "", err
+	}
+
+	err = db.ensureTable(flatItem, updatedItem)
+	if err != nil {
+		return "", err
+	}
+
+	values := []interface{}{}
+	replacements := []string{}
+	for k, v := range flatItem {
+		replacements = append(replacements, fmt.Sprintf("\"%s\"=?", k))
+		values = append(values, v)
+	}
+	replace := strings.Join(replacements, ", ")
+
+	values = append(values, id)
+	table := updatedItem[db.Discriminator()]
+	stmt, err := db.cursor.Prepare(fmt.Sprintf("UPDATE %s SET %s WHERE uid=?", table, replace)) // #nosec
+	if err != nil {
+		return "", err
+	}
+
+	_, err = stmt.Exec(values)
+	if err != nil {
+		return "", err
+	}
+
+	return updatedItem["uid"].(string), nil
+*/
 
 // StoreFile adds a file to the database folder.
 func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.File, err error) {
@@ -461,7 +463,7 @@ func (db *JSONLite) Close() error {
 #   Options & Schemas
 ################################ */
 
-// Discriminator gets the json attribute that seperates objects into tables.
+// Discriminator gets the json attribute that separates objects into tables.
 func (db *JSONLite) Discriminator() string {
 	value, err := db.option("discriminator")
 	if err != nil {
@@ -475,7 +477,7 @@ func (db *JSONLite) Discriminator() string {
 	return value.(string)
 }
 
-// SetDiscriminator sets the json attribute that seperates objects into tables.
+// SetDiscriminator sets the json attribute that separates objects into tables.
 func (db *JSONLite) SetDiscriminator(discriminator string) {
 	err := db.setOption("discriminator", discriminator)
 	if err != nil {
@@ -568,7 +570,7 @@ func (db *JSONLite) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) {
+func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) { // nolint:gocyclo
 	flaws = []string{}
 	itemExpectedFiles = []string{}
 
@@ -684,7 +686,6 @@ func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
 
 // Select retrieves all items of a discriminated attribute.
 func (db *JSONLite) Select(itemType string, conditions []map[string]string) (items []Item, err error) {
-
 	var ors []string
 	for _, condition := range conditions {
 		var ands []string
@@ -698,9 +699,9 @@ func (db *JSONLite) Select(itemType string, conditions []map[string]string) (ite
 		}
 	}
 
-	query := fmt.Sprintf("SELECT * FROM \"%s\"", itemType)
+	query := fmt.Sprintf("SELECT * FROM \"%s\"", itemType) // #nosec
 	if len(ors) > 0 {
-		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR "))
+		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR ")) // #nosec
 	}
 
 	stmt, err := db.cursor.Prepare(query) // #nosec
@@ -957,6 +958,7 @@ func getSQLDataType(value interface{}) string {
 }
 
 func (db *JSONLite) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
+	sort.Strings(newColumns)
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
 		db.tables.innerstore(table, newColumn, sqlDataType)
@@ -1049,6 +1051,7 @@ func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	return nil
 }
 
+// Schema gets a single schema from the database.
 func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	if schema, ok := db.schemas.load(id); ok {
 		return schema, nil
