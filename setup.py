@@ -23,7 +23,7 @@ from setuptools import setup
 
 setup(
     name='forensicstore',
-    version='0.12.2',
+    version='0.14.0',
     url='https://github.com/forensicanalysis/forensicstore',
     author='Jonas Plum',
     author_email='jonas.plum@siemens.com',
