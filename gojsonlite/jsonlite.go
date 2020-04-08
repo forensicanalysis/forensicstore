@@ -127,13 +127,12 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:
 	}
 
 	if db.NewDB {
-		log.Println("Store does not exist", db.remoteDBFile)
+		log.Printf("Creating store %s", db.remoteStoreFolder)
 		_, err := db.Create(db.remoteDBFile)
 		if err != nil {
 			return nil, err
 		}
 	} else if !db.remoteIsLocal {
-		log.Println("Store exists", db, db.remoteStoreFolder)
 		if err := copy.File(db, db.localFS, db.remoteDBFile, db.localDBFile); err != nil {
 			return nil, err
 		}
