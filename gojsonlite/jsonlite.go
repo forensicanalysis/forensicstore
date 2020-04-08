@@ -438,8 +438,8 @@ func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.Fil
 // }
 
 // LoadFile opens a file from the database folder.
-func (db *JSONLite) LoadFile(path string) (file afero.File, err error) {
-	return db.Open(path)
+func (db *JSONLite) LoadFile(filePath string) (file afero.File, err error) {
+	return db.Open(path.Join(db.localStoreFolder, filePath))
 }
 
 // Close saves and closes the database.
