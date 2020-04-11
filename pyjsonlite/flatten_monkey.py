@@ -1,3 +1,4 @@
+# Copyright (c) 2019 Amir Ziai
 # Copyright (c) 2019 Siemens AG
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -17,7 +18,10 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-# Author(s): Jonas Plum
+# Author(s): Amir Ziai, Jonas Plum
+#
+# This code was adapted from
+# https://github.com/amirziai/flatten/blob/master/flatten_json/__init__.py
 
 """ Monkey patch for flatten_json """
 import flatten_json
