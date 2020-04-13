@@ -27,11 +27,9 @@ import (
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -49,40 +47,36 @@ import (
 
 	"github.com/forensicanalysis/forensicstore/goflatten"
 	"github.com/forensicanalysis/forensicstore/gostore"
-	"github.com/forensicanalysis/fslib/aferotools/copy"
 )
 
 // Item is a storeable element.
 type Item = gostore.Item
 
 const (
-	// INTEGER represents the SQL INTEGER type
-	INTEGER = "INTEGER"
-	// NUMERIC represents the SQL NUMERIC type
-	NUMERIC = "NUMERIC"
-	// TEXT represents the SQL TEXT type
-	TEXT = "TEXT"
-	// BLOB represents the SQL BLOB type
-	// BLOB = "BLOB"
+	// integer represents the SQL INTEGER type
+	integer = "INTEGER"
+	// numeric represents the SQL NUMERIC type
+	numeric = "NUMERIC"
+	// text represents the SQL TEXT type
+	text = "TEXT"
+	// blob represents the SQL BLOB type
+	// blob = "BLOB"
 )
+
+const discriminator = "type"
 
 // JSONLite is a file based strorage for json data.
 type JSONLite struct {
 	afero.Fs
 	NewDB             bool
-	remoteIsLocal     bool
 	remoteURL         string
 	remoteStoreFolder string
 	remoteDBFile      string
-	localFS           afero.Fs
-	localStoreFolder  string
-	localDBFile       string
 	cursor            *sql.DB
 	sqlMutex          sync.RWMutex
 	fileMutex         sync.RWMutex
-	tables            *tableMap  // map[string]map[string]string
-	options           sync.Map   // map[string]interface{}
-	schemas           *schemaMap // map[string]*jsonschema.RootSchema
+	tables            *tableMap
+	schemas           *schemaMap
 }
 
 func toFS(url string) (fs afero.Fs, path string, isLocal bool) {
@@ -101,19 +95,8 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:
 	}
 	db.remoteURL = remoteURL
 
-	db.Fs, db.remoteStoreFolder, db.remoteIsLocal = toFS(remoteURL)
+	db.Fs, db.remoteStoreFolder, _ = toFS(remoteURL)
 	db.remoteDBFile = filepath.Join(db.remoteStoreFolder, "item.db")
-
-	db.localFS, db.localStoreFolder = db.Fs, db.remoteStoreFolder
-	if !db.remoteIsLocal {
-		tmpDir, err := ioutil.TempDir("", "jsonlite")
-		if err != nil {
-			return nil, err
-		}
-		localPath := filepath.Join(tmpDir, filepath.Base(remoteURL))
-		db.localFS, db.localStoreFolder, _ = toFS(localPath)
-	}
-	db.localDBFile = filepath.Join(db.localStoreFolder, "item.db")
 
 	exists, err := afero.Exists(db, db.remoteDBFile)
 	if err != nil {
@@ -121,7 +104,7 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:
 	}
 	db.NewDB = !exists
 
-	err = db.localFS.MkdirAll(db.localStoreFolder, 0755)
+	err = db.MkdirAll(db.remoteStoreFolder, 0755)
 	if err != nil {
 		return nil, err
 	}
@@ -132,34 +115,14 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:
 		if err != nil {
 			return nil, err
 		}
-	} else if !db.remoteIsLocal {
-		if err := copy.File(db, db.localFS, db.remoteDBFile, db.localDBFile); err != nil {
-			return nil, err
-		}
 	}
 
-	db.cursor, err = sql.Open("sqlite3", db.localDBFile)
+	db.cursor, err = sql.Open("sqlite3", db.remoteDBFile)
 	if err != nil {
 		return nil, err
 	}
 
-	// db.options = map[string]interface{}{}
-	// db.schemas = map[string]*jsonschema.RootSchema{}
 	db.schemas = newSchemaMap()
-
-	if db.NewDB {
-		err = db.createOptionsTable()
-		if err != nil {
-			return nil, err
-		}
-		db.SetStrict(true)
-		db.SetDiscriminator(discriminator)
-	}
-
-	err = db.loadSchemas()
-	if err != nil {
-		return nil, err
-	}
 
 	db.tables = newTableMap()
 
@@ -181,7 +144,10 @@ func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:
 // Insert adds a single item.
 func (db *JSONLite) Insert(item Item) (string, error) {
 	uids, err := db.InsertBatch([]Item{item})
-	return uids[0], err
+	if err != nil {
+		return "", err
+	}
+	return uids[0], nil
 }
 
 // InsertBatch adds a set of items. All items must have the same fields.
@@ -191,12 +157,12 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 	}
 	firstItem := items[0]
 
-	if _, ok := firstItem[db.Discriminator()]; !ok {
+	if _, ok := firstItem[discriminator]; !ok {
 		return nil, errors.New("missing discriminator in item")
 	}
 
 	if _, ok := firstItem["uid"]; !ok {
-		firstItem["uid"] = firstItem[db.Discriminator()].(string) + "--" + uuid.New().String()
+		firstItem["uid"] = firstItem[discriminator].(string) + "--" + uuid.New().String()
 	}
 
 	flatItem, err := goflatten.Flatten(firstItem)
@@ -219,24 +185,24 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 	var columnValues []interface{}
 	var uids []string
 	for _, item := range items {
-		if db.Strict() {
-			db.sqlMutex.Lock()
-			valErr, err := db.validateItemSchema(item)
-			db.sqlMutex.Unlock()
-			if err != nil {
-				return nil, errors.Wrap(err, "validation failed")
-			}
-			if len(valErr) > 0 {
-				return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
-			}
+		// if db.Strict() {
+		db.sqlMutex.Lock()
+		valErr, err := db.validateItemSchema(item)
+		db.sqlMutex.Unlock()
+		if err != nil {
+			return nil, errors.Wrap(err, "validation failed")
 		}
+		if len(valErr) > 0 {
+			return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+		}
+		// }
 
 		flatItem, err := goflatten.Flatten(item)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not flatten item")
 		}
 		if _, ok := flatItem["uid"]; !ok {
-			flatItem["uid"] = flatItem[db.Discriminator()].(string) + "--" + uuid.New().String()
+			flatItem["uid"] = flatItem[discriminator].(string) + "--" + uuid.New().String()
 		}
 		for _, name := range columnNames {
 			columnValues = append(columnValues, flatItem[name])
@@ -248,7 +214,7 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 
 	query := fmt.Sprintf(
 		"INSERT INTO \"%s\"(%s) VALUES %s",
-		firstItem[db.Discriminator()].(string),
+		firstItem[discriminator].(string),
 		`"`+strings.Join(columnNames, `","`)+`"`,
 		strings.Join(placeholderGrp, ","),
 	) // #nosec
@@ -316,70 +282,9 @@ func (db *JSONLite) Update(id string, partialItem Item) (string, error) {
 	return "", errors.New("not yet implemented")
 }
 
-/*
-	updatedItem, err := db.Get(id)
-	if err != nil {
-		return "", err
-	}
-	oldDiscriminator := updatedItem[db.Discriminator()].(string)
-	if err := mergo.Merge(&updatedItem, partialItem); err != nil {
-		return "", err
-	}
-
-	parts := strings.Split(id, "--")
-	itemUUID := parts[1]
-
-	if val, ok := partialItem[db.Discriminator()]; ok && oldDiscriminator != partialItem[db.Discriminator()].(string) {
-		updatedItem["uid"] = val.(string) + "--" + itemUUID
-
-		stmt, err := db.cursor.Prepare(fmt.Sprintf("DELETE FROM %s WHERE uid=?", oldDiscriminator)) // #nosec
-		if err != nil {
-			return "", err
-		}
-
-		_, err = stmt.Exec(id)
-		if err != nil {
-			return "", err
-		}
-		return db.Insert(updatedItem)
-	}
-
-	flatItem, err := goflatten.Flatten(updatedItem)
-	if err != nil {
-		return "", err
-	}
-
-	err = db.ensureTable(flatItem, updatedItem)
-	if err != nil {
-		return "", err
-	}
-
-	values := []interface{}{}
-	replacements := []string{}
-	for k, v := range flatItem {
-		replacements = append(replacements, fmt.Sprintf("\"%s\"=?", k))
-		values = append(values, v)
-	}
-	replace := strings.Join(replacements, ", ")
-
-	values = append(values, id)
-	table := updatedItem[db.Discriminator()]
-	stmt, err := db.cursor.Prepare(fmt.Sprintf("UPDATE %s SET %s WHERE uid=?", table, replace)) // #nosec
-	if err != nil {
-		return "", err
-	}
-
-	_, err = stmt.Exec(values)
-	if err != nil {
-		return "", err
-	}
-
-	return updatedItem["uid"].(string), nil
-*/
-
 // StoreFile adds a file to the database folder.
 func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.File, err error) {
-	err = db.MkdirAll(filepath.Join(db.localStoreFolder, filepath.Dir(filePath)), 0755)
+	err = db.MkdirAll(filepath.Join(db.remoteStoreFolder, filepath.Dir(filePath)), 0755)
 	if err != nil {
 		return "", nil, err
 	}
@@ -387,125 +292,37 @@ func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.Fil
 	db.fileMutex.Lock()
 	i := 0
 	ext := filepath.Ext(filePath)
-	localStoreFilePath := path.Join(db.localStoreFolder, filePath)
-	base := localStoreFilePath[:len(localStoreFilePath)-len(ext)]
+	remoteStoreFilePath := path.Join(db.remoteStoreFolder, filePath)
+	base := remoteStoreFilePath[:len(remoteStoreFilePath)-len(ext)]
 
-	exists, err := afero.Exists(db, localStoreFilePath)
+	exists, err := afero.Exists(db, remoteStoreFilePath)
 	if err != nil {
 		db.fileMutex.Unlock()
 		return "", nil, err
 	}
 	for exists {
-		localStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
+		remoteStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
 		i++
-		exists, err = afero.Exists(db, localStoreFilePath)
+		exists, err = afero.Exists(db, remoteStoreFilePath)
 		if err != nil {
 			db.fileMutex.Unlock()
 			return "", nil, err
 		}
 	}
 
-	file, err = db.Create(localStoreFilePath)
+	file, err = db.Create(remoteStoreFilePath)
 	db.fileMutex.Unlock()
-	return localStoreFilePath[len(db.localStoreFolder)+1:], file, err
+	return remoteStoreFilePath[len(db.remoteStoreFolder)+1:], file, err
 }
-
-// func (db *JSONLite) StoreFolder(folderPath string) (absPath, storePath string, err error) {
-// 	err = db.MkdirAll(filepath.Directory(folderPath), 0755)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-
-// 	i := 0
-// 	folderPath = path.Join(db.localStoreFolder, folderPath)
-// 	base := folderPath
-
-// 	exists, err := afero.Exists(db, folderPath)
-// 	if err != nil {
-// 		return "", "", err
-// 	}
-// 	for exists {
-// 		folderPath = fmt.Sprintf("%s_%d", base, i)
-// 		i++
-// 		exists, err = afero.Exists(db, folderPath)
-// 		if err != nil {
-// 			return "", "", err
-// 		}
-// 	}
-
-// 	err = db.MkdirAll(folderPath, 0755)
-// 	return folderPath, folderPath[len(db.localStoreFolder)+1:], err
-// }
 
 // LoadFile opens a file from the database folder.
 func (db *JSONLite) LoadFile(filePath string) (file afero.File, err error) {
-	return db.Open(path.Join(db.localStoreFolder, filePath))
+	return db.Open(path.Join(db.remoteStoreFolder, filePath))
 }
 
 // Close saves and closes the database.
 func (db *JSONLite) Close() error {
-	err := db.cursor.Close()
-	if err != nil {
-		return err
-	}
-	if !db.remoteIsLocal {
-		err = copy.File(db.localFS, db, db.localDBFile, db.remoteDBFile)
-		if err != nil {
-			return err
-		}
-		return db.localFS.Remove(db.localStoreFolder)
-	}
-	return nil
-}
-
-/* ################################
-#   Options & Schemas
-################################ */
-
-// Discriminator gets the json attribute that separates objects into tables.
-func (db *JSONLite) Discriminator() string {
-	value, err := db.option("discriminator")
-	if err != nil {
-		panic(err)
-	}
-
-	if uint8value, ok := value.([]uint8); ok {
-		value = string(uint8value)
-	}
-
-	return value.(string)
-}
-
-// SetDiscriminator sets the json attribute that separates objects into tables.
-func (db *JSONLite) SetDiscriminator(discriminator string) {
-	err := db.setOption("discriminator", discriminator)
-	if err != nil {
-		panic(err)
-	}
-}
-
-// Strict returns if database is in strict mode and all insertions are validated
-// against the contained json schemas.
-func (db *JSONLite) Strict() bool {
-	value, err := db.option("strict")
-	if err != nil {
-		panic(err)
-	}
-
-	if stringvalue, ok := value.(string); ok {
-		value = strings.ToLower(stringvalue) == "true" || stringvalue == "1"
-	}
-
-	return value.(bool)
-}
-
-// SetStrict set if database is in strict mode and all insertions are validated
-// against the contained json schemas.
-func (db *JSONLite) SetStrict(strict bool) {
-	err := db.setOption("strict", strict)
-	if err != nil {
-		panic(err)
-	}
+	return db.cursor.Close()
 }
 
 /* ################################
@@ -573,7 +390,7 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 	flaws = []string{}
 	itemExpectedFiles = []string{}
 
-	if _, ok := item[db.Discriminator()]; !ok {
+	if _, ok := item[discriminator]; !ok {
 		flaws = append(flaws, "item needs to have a discriminator")
 	}
 
@@ -654,9 +471,12 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
 	flaws = []string{}
 
-	rootSchema, err := db.Schema(item[db.Discriminator()].(string))
+	rootSchema, err := db.Schema(item[discriminator].(string))
 	if err != nil {
-		return flaws, errors.Wrap(err, "could not get root schema")
+		if err == ErrSchemaNotFound {
+			return nil, nil // no schema for item
+		}
+		return flaws, errors.Wrap(err, "could not get schema")
 	}
 
 	for _, schemaName := range db.schemas.keys() {
@@ -866,7 +686,7 @@ func (db *JSONLite) getTables() (map[string]map[string]string, error) {
 }
 
 func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
-	itemType := item[db.Discriminator()].(string)
+	itemType := item[discriminator].(string)
 
 	db.sqlMutex.Lock()
 	defer db.sqlMutex.Unlock()
@@ -899,7 +719,7 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 			if len(valErr) > 0 {
 				return fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
 			}
-			if err := db.addMissingColumns(item[db.Discriminator()].(string), flatItem, missingColumns); err != nil {
+			if err := db.addMissingColumns(item[discriminator].(string), flatItem, missingColumns); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("adding missing column failed %v", missingColumns))
 			}
 		}
@@ -908,51 +728,51 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 }
 
 func (db *JSONLite) createTable(flatItem Item) error {
-	table := map[string]string{"uid": "TEXT", db.Discriminator(): "TEXT"}
-	db.tables.store(flatItem[db.Discriminator()].(string), table)
+	table := map[string]string{"uid": "TEXT", discriminator: "TEXT"}
+	db.tables.store(flatItem[discriminator].(string), table)
 
-	columns := []string{"uid TEXT PRIMARY KEY", db.Discriminator() + " TEXT NOT NULL"}
+	columns := []string{"uid TEXT PRIMARY KEY", discriminator + " TEXT NOT NULL"}
 	for columnName := range flatItem {
-		if columnName != "uid" && columnName != db.Discriminator() {
+		if columnName != "uid" && columnName != discriminator {
 			sqlDataType := getSQLDataType(flatItem[columnName])
-			db.tables.innerstore(flatItem[db.Discriminator()].(string), columnName, sqlDataType)
+			db.tables.innerstore(flatItem[discriminator].(string), columnName, sqlDataType)
 			columns = append(columns, fmt.Sprintf("`%s` %s", columnName, sqlDataType))
 		}
 	}
 	columnText := strings.Join(columns, ", ")
 
-	_, err := db.cursor.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatItem[db.Discriminator()], columnText))
+	_, err := db.cursor.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatItem[discriminator], columnText))
 	return err
 }
 
 func getSQLDataType(value interface{}) string {
 	switch value.(type) {
 	case int:
-		return INTEGER
+		return integer
 	case int16:
-		return INTEGER
+		return integer
 	case int8:
-		return INTEGER
+		return integer
 	case int32:
-		return INTEGER
+		return integer
 	case int64:
-		return INTEGER
+		return integer
 	case uint:
-		return INTEGER
+		return integer
 	case uint16:
-		return INTEGER
+		return integer
 	case uint8:
-		return INTEGER
+		return integer
 	case uint32:
-		return INTEGER
+		return integer
 	case uint64:
-		return INTEGER
+		return integer
 	case float32:
-		return NUMERIC
+		return numeric
 	case float64:
-		return NUMERIC
+		return numeric
 	default:
-		return TEXT
+		return text
 	}
 }
 
@@ -969,80 +789,10 @@ func (db *JSONLite) addMissingColumns(table string, columns map[string]interface
 	return nil
 }
 
-func (db *JSONLite) createOptionsTable() error {
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
-	_, err := db.cursor.Exec("CREATE TABLE IF NOT EXISTS \"_options\" (key TEXT PRIMARY KEY, value TEXT)")
-	if err != nil {
-		return err
-	}
-	_, err = db.cursor.Exec("CREATE TABLE IF NOT EXISTS \"_schemas\" (id TEXT PRIMARY KEY, schema TEXT)")
-	return err
-}
-
-func (db *JSONLite) setOption(key string, value interface{}) error {
-	if val, ok := db.options.Load(key); ok && val == value {
-		return nil
-	}
-
-	stmt, err := db.cursor.Prepare("INSERT OR REPLACE INTO \"_options\" (\"key\", \"value\") VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
-
-	db.sqlMutex.Lock()
-	_, err = stmt.Exec(key, value)
-	db.sqlMutex.Unlock()
-	if err != nil {
-		return err
-	}
-
-	db.options.Store(key, value)
-	return nil
-}
-
-func (db *JSONLite) option(key string) (interface{}, error) {
-	if value, ok := db.options.Load(key); ok {
-		return value, nil
-	}
-
-	stmt, err := db.cursor.Prepare("SELECT value FROM \"_options\" WHERE \"key\" = ?")
-	if err != nil {
-		return nil, err
-	}
-
-	var value string
-	db.sqlMutex.RLock()
-	row := stmt.QueryRow(key)
-	db.sqlMutex.RUnlock()
-	if err := row.Scan(&value); err != nil {
-		return nil, err
-	}
-	db.options.Store(key, value)
-	return value, nil
-}
-
 // SetSchema inserts or replaces a json schema for input validation.
 func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	if val, ok := db.schemas.load(id); ok && val == schema {
 		return nil
-	}
-
-	stmt, err := db.cursor.Prepare("INSERT OR REPLACE INTO \"_schemas\" (\"id\", \"schema\") VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
-
-	schemaData, err := json.Marshal(schema)
-	if err != nil {
-		return err
-	}
-
-	db.sqlMutex.Lock()
-	_, err = stmt.Exec(id, schemaData)
-	db.sqlMutex.Unlock()
-	if err != nil {
-		return err
 	}
 
 	// db.schemas[id] = schema
@@ -1050,66 +800,13 @@ func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	return nil
 }
 
+var ErrSchemaNotFound = errors.New("schema not found")
+
 // Schema gets a single schema from the database.
 func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	if schema, ok := db.schemas.load(id); ok {
 		return schema, nil
 	}
 
-	stmt, err := db.cursor.Prepare("SELECT schema FROM \"_schemas\" WHERE \"id\" = ?")
-	if err != nil {
-		return nil, err
-	}
-
-	var schemaData string
-	schema := &jsonschema.RootSchema{}
-	row := stmt.QueryRow(id)
-	if err := row.Scan(&schemaData); err != nil {
-		if err == sql.ErrNoRows {
-			return schema, nil
-		}
-
-		return nil, errors.Wrap(err, "scanning error")
-	}
-
-	if err := json.Unmarshal([]byte(schemaData), schema); err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", schemaData))
-	}
-
-	db.schemas.store(id, schema)
-	return schema, nil
-}
-
-func (db *JSONLite) loadSchemas() error {
-	stmt, err := db.cursor.Prepare("SELECT id, schema FROM \"_schemas\"")
-	if err != nil {
-		return err
-	}
-
-	db.sqlMutex.RLock()
-	rows, err := stmt.Query()
-	db.sqlMutex.RUnlock()
-	if err != nil {
-		return err
-	}
-
-	var id, schemaData string
-	for rows.Next() {
-		schema := &jsonschema.RootSchema{}
-		if err := rows.Scan(&id, &schemaData); err != nil {
-			if err == sql.ErrNoRows {
-				return nil
-			}
-
-			return errors.Wrap(err, "scanning error")
-		}
-
-		if err := json.Unmarshal([]byte(schemaData), schema); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("unmarshal error %s", schemaData))
-		}
-
-		db.schemas.store(id, schema)
-	}
-
-	return nil
+	return nil, ErrSchemaNotFound
 }

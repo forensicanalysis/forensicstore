@@ -57,6 +57,7 @@ def open_fs_file(location: str, create: bool = False) -> (base.FS, str):
         raise RuntimeError("Could not create %s (%s)" % (location, error))
     return file_system, filename
 
+discriminator = "type"
 
 class JSONLite:
     """
@@ -67,39 +68,21 @@ class JSONLite:
 
     db_file = "item.db"
 
-    def __init__(self, remote_url: str, discriminator: str = "type", read_only: bool = False):
-        self.read_only = read_only
-
+    def __init__(self, remote_url: str):
         if isinstance(remote_url, str):
             if remote_url[-1] == "/":
                 remote_url = remote_url[:-1]
             self.remote_fs = open_fs(remote_url, create=True)
         else:
             self.remote_fs = remote_url
-        self.remote_is_local = self.remote_fs.hassyspath(".")
-
-        if self.remote_is_local and not read_only:
-            self.local_fs = self.remote_fs
-        else:
-            self.local_fs = osfs.OSFS(tempfile.mkdtemp())
 
         self.new = not self.remote_fs.exists(self.db_file)
-        if (not self.new and not self.remote_is_local) or self.read_only:
-            # store exists
-            copy.copy_file(self.remote_fs, self.db_file,
-                           self.local_fs, self.db_file)
 
-        dbpath = path.join(self.local_fs.getsyspath("."), self.db_file)
+        dbpath = path.join(self.remote_fs.getsyspath("."), self.db_file)
         self.connection = sqlite3.connect(dbpath)
         self.connection.row_factory = sqlite3.Row
-        self._options = dict()
+
         self._schemas = dict()
-
-        if self.new:
-            self._create_options_table()
-            self.set_strict(True)
-            self.set_discriminator(discriminator)
-
         self._tables = self._get_tables()
 
     ################################
@@ -114,25 +97,23 @@ class JSONLite:
         :return: ID if the inserted item
         :rtype: int
         """
-        if self.discriminator() not in item:
-            raise KeyError("Missing discriminator %s in item" %
-                           self.discriminator())
+        if discriminator not in item:
+            raise KeyError("Missing discriminator %s in item" % discriminator)
         # add uuid
         if 'uid' not in item:
-            item['uid'] = item[self.discriminator()] + '--' + str(uuid.uuid4())
+            item['uid'] = item[discriminator] + '--' + str(uuid.uuid4())
 
         column_names, column_values, flat_item, item = self._flatten_item(item)
 
         self._ensure_table(column_names, flat_item, item)
 
-        if self.strict():
-            if self.validate_item_schema(item):
-                raise TypeError("item could not be validated")
+        if self.validate_item_schema(item):
+            raise TypeError("item could not be validated")
 
         # insert item
         cur = self.connection.cursor()
         query = "INSERT INTO \"{table}\" ({columns}) VALUES ({values})".format(
-            table=item[self.discriminator()],
+            table=item[discriminator],
             columns=", ".join(['"' + c + '"' for c in column_names]),
             values=", ".join(['?'] * len(column_values))
         )
@@ -189,14 +170,14 @@ class JSONLite:
         cur = self.connection.cursor()
 
         updated_item = self.get(item_id)
-        old_discriminator = updated_item[self.discriminator()]
+        old_discriminator = updated_item[discriminator]
         updated_item.update(partial_item)
 
         _, _, item_uuid = item_id.partition("--")
 
         # type changed
-        if self.discriminator() in partial_item and old_discriminator != partial_item[self.discriminator()]:
-            updated_item["uid"] = partial_item[self.discriminator()] + \
+        if discriminator in partial_item and old_discriminator != partial_item[discriminator]:
+            updated_item["uid"] = partial_item[discriminator] + \
                 '--' + item_uuid
             cur.execute("DELETE FROM \"{table}\" WHERE uid=?".format(
                 table=old_discriminator), [item_id])
@@ -214,7 +195,7 @@ class JSONLite:
         replace = ", ".join(replacements)
 
         values.append(item_id)
-        table = updated_item[self.discriminator()]
+        table = updated_item[discriminator]
         cur.execute("UPDATE \"{table}\" SET {replace} WHERE uid=?".format(
             table=table, replace=replace), values)
         cur.close()
@@ -238,14 +219,6 @@ class JSONLite:
                     file.write(file_system.readbytes(item[field]))
                 item.update({field: file_path})
         self.insert(item)
-
-    def export_jsonlite(self, url: str):
-        self.connection.commit()
-        self.connection.close()
-        remote_fs = open_fs(url)
-        copy.copy_dir(self.local_fs, ".", remote_fs, ".")
-        self.connection = sqlite3.connect(self.db_file)
-        self.connection.row_factory = sqlite3.Row
 
     @contextmanager
     def store_file(self, file_path: str) -> (str, HashedFile):
@@ -279,26 +252,6 @@ class JSONLite:
         """
         self.connection.commit()
         self.connection.close()
-        if not self.remote_is_local and not self.read_only:
-            copy.copy_file(self.local_fs, self.db_file,
-                           self.remote_fs, self.db_file)
-            self.local_fs.removetree(".")
-
-    ################################
-    #   Options & Schemas
-    ################################
-
-    def set_discriminator(self, discriminator: str):
-        self._set_option("discriminator", discriminator)
-
-    def discriminator(self) -> str:
-        return self._option("discriminator")
-
-    def set_strict(self, strict: bool):
-        self._set_option("strict", strict)
-
-    def strict(self) -> bool:
-        return self._option("strict")
 
     ################################
     #   Validate
@@ -336,7 +289,7 @@ class JSONLite:
         validation_errors = []
         expected_files = set()
 
-        if self.discriminator() not in item:
+        if discriminator not in item:
             validation_errors.append("Item needs to have a discriminator, got %s" % item)
 
         validation_errors += self.validate_item_schema(item)
@@ -385,12 +338,13 @@ class JSONLite:
     def validate_item_schema(self, item):
         validation_errors = []
 
-        item_type = item[self.discriminator()]
+        item_type = item[discriminator]
         schema = self._schema(item_type)
+        if schema is None:
+            return validation_errors
 
         try:
-            jsonschema.validate(
-                item, schema, resolver=JSONLiteResolver(self, item_type))
+            jsonschema.validate(item, schema, resolver=JSONLiteResolver(self, item_type))
         except jsonschema.ValidationError as error:
             validation_errors.append("Item could not be validated, %s" % str(error))
         return validation_errors
@@ -506,7 +460,7 @@ class JSONLite:
 
     def _ensure_table(self, column_names: [], flat_item: dict, item: dict):
         # create table if not exits
-        if item[self.discriminator()] not in self._tables:
+        if item[discriminator] not in self._tables:
             if self.validate_item_schema(item):
                 validation_errors = self.validate_item_schema(item)
                 if validation_errors:
@@ -515,28 +469,28 @@ class JSONLite:
         # add missing columns
         else:
             missing_columns = set(flat_item.keys()) - \
-                set(self._tables[item[self.discriminator()]])
+                set(self._tables[item[discriminator]])
             if missing_columns:
                 validation_errors = self.validate_item_schema(item)
                 if validation_errors:
                     raise TypeError("item could not be validated %s" % validation_errors)
                 self._add_missing_columns(
-                    item[self.discriminator()], flat_item, missing_columns)
+                    item[discriminator], flat_item, missing_columns)
 
     def _create_table(self, column_names: [], flat_item: dict):
-        self._tables[flat_item[self.discriminator()]] = {
-            'uid': 'TEXT', self.discriminator(): 'TEXT'}
-        columns = "uid TEXT PRIMARY KEY, %s TEXT NOT NULL" % self.discriminator()
+        self._tables[flat_item[discriminator]] = {
+            'uid': 'TEXT', discriminator: 'TEXT'}
+        columns = "uid TEXT PRIMARY KEY, %s TEXT NOT NULL" % discriminator
         for column in column_names:
-            if column not in [self.discriminator(), 'uid']:
+            if column not in [discriminator, 'uid']:
                 sql_data_type = self._get_sql_data_type(flat_item[column])
-                self._tables[flat_item[self.discriminator()]
+                self._tables[flat_item[discriminator]
                              ][column] = sql_data_type
                 columns += ", \"{column}\" {sql_data_type}".format(
                     column=column, sql_data_type=sql_data_type)
         cur = self.connection.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS \"{table}\" ({columns})".format(
-            table=flat_item[self.discriminator()], columns=columns
+            table=flat_item[discriminator], columns=columns
         ))
         cur.close()
 
@@ -557,80 +511,15 @@ class JSONLite:
             return "INTEGER"
         return "TEXT"
 
-    def _create_options_table(self):
-        cur = self.connection.cursor()
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS \"_options\" (key TEXT PRIMARY KEY, value TEXT)")
-        cur.execute(
-            "CREATE TABLE IF NOT EXISTS \"_schemas\" (id TEXT PRIMARY KEY, schema TEXT)")
-        cur.close()
-
-    def _set_option(self, key: str, value: Any):
-        if key in self._options and self._options[key] == value:
-            return
-        cur = self.connection.cursor()
-        query = "INSERT OR REPLACE INTO \"_options\" (\"key\", \"value\") VALUES (?, ?)"
-        LOGGER.debug("set option query: %s", query)
-        try:
-            cur.execute(query, (key, value))
-            self._options[key] = value
-        except sqlite3.InterfaceError as error:
-            print(query, key, value)
-            raise error
-        finally:
-            cur.close()
-
-    def _option(self, key: str) -> Any:
-        if key in self._options:
-            return self._options[key]
-        cur = self.connection.cursor()
-        query = "SELECT value FROM \"_options\" WHERE \"key\" = ?"
-        LOGGER.debug("get option query: %s", query)
-        try:
-            cur.execute(query, (key,))
-            value = cur.fetchone()["value"]
-            self._options[key] = value
-            return value
-        except sqlite3.InterfaceError as error:
-            print(query, key)
-            raise error
-        finally:
-            cur.close()
-
     def _set_schema(self, name: str, schema: Any):
         if name in self._schemas and self._schemas[name] == schema:
             return
-        cur = self.connection.cursor()
-        query = "INSERT OR REPLACE INTO \"_schemas\" (\"id\", \"schema\") VALUES (?, ?)"
-        LOGGER.debug("set schema query: %s", query)
-        try:
-            cur.execute(query, (name, json.dumps(schema)))
-            self._schemas[name] = schema
-        except sqlite3.InterfaceError as error:
-            print(query, name, schema)
-            raise error
-        finally:
-            cur.close()
+        self._schemas[name] = schema
 
     def _schema(self, name: str) -> Any:
         if name in self._schemas:
             return self._schemas[name]
-        cur = self.connection.cursor()
-        query = "SELECT schema FROM \"_schemas\" WHERE \"id\" = ?"
-        LOGGER.debug("get schema query: %s", query)
-        try:
-            cur.execute(query, (name,))
-            result = cur.fetchone()
-            if not result:
-                return {}
-            schema = json.loads(result["schema"])
-            self._schemas[name] = schema
-            return schema
-        except sqlite3.InterfaceError as error:
-            print(query, name)
-            raise error
-        finally:
-            cur.close()
+        return None
 
     def getinfo(self, item_path, namespaces=None):
         """ Get info regarding a file or directory. """
@@ -661,8 +550,8 @@ class JSONLite:
         return self.remote_fs.setinfo(item_path, info)
 
 
-def connect(url: str, discriminator: str = "type", read_only: bool = False) -> JSONLite:
-    return JSONLite(url, discriminator=discriminator, read_only=read_only)
+def connect(url: str) -> JSONLite:
+    return JSONLite(url)
 
 
 class JSONLiteResolver:

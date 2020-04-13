@@ -39,64 +39,17 @@ class ForensicStore(JSONLite):
     """
     ForensicStore is a class to database that can be used to store forensic items and files.
 
-    :param str remote_url: Location of the database. Needs to be a path or a valid pyfilesystem2 url
+    :param str url: Location of the database. Needs to be a path or a valid pyfilesystem2 url
     """
 
-    def __init__(self, remote_url: str, read_only: bool = False):
-        my_uuid = "{}--{}".format("observed-data", uuid.uuid4())
-        current_date = datetime.utcnow().isoformat()[0:-3] + 'Z'
-        self.metadata = {
-            "last_observed": current_date,
-            "type": "observed-data",
-            "created": current_date,
-            "first_observed": current_date,
-            "modified": current_date,
-            "id": my_uuid,
-            "number_observed": 1
-        }
+    def __init__(self, url: str):
+        super().__init__(url)
 
-        super().__init__(remote_url, discriminator="type", read_only=read_only)
-
-        if self.new:
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            for schema_file in os.listdir(path.join(current_dir, "schemas")):
-                with open(path.join(current_dir, "schemas", schema_file)) as schema_io:
-                    schema = json.load(schema_io)
-                    self._set_schema(schema["$id"], schema)
-
-    def import_forensicstore(self, url: str):
-        """
-        Import ForensicStore file
-
-        :param str url: Location of the observed data file. Needs to be a path or a valid pyfilesystem2 url
-        """
-        self.import_jsonlite(url)
-
-    def import_stix(self, url: str):
-        """
-        Import Observed Data file
-
-        :param str url: Location of the observed data file. Needs to be a path or a valid pyfilesystem2 url
-        """
-        fs, location = open_fs_file(url)
-        with fs.open(location, 'r') as io:
-            items = json.load(io)
-
-            self.metadata = {k: v for k, v in items.items() if k != "items"}
-            for item in items["objects"].values():
-                self._import_file(fs, item)
-
-    def export_stix(self, url):
-        """
-        Create a valid STIX 2.0 observed data object
-
-        """
-        meta = self.metadata
-        meta["objects"] = {str(idx): item for idx, item in enumerate(self.all())}
-
-        fs, filename = open_fs_file(url)
-        with fs.open(filename, 'w+') as io:
-            json.dump(meta, io)
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        for schema_file in os.listdir(path.join(current_dir, "schemas")):
+            with open(path.join(current_dir, "schemas", schema_file)) as schema_io:
+                schema = json.load(schema_io)
+                self._set_schema(schema["$id"], schema)
 
     def add_process_item(self, artifact, name, created, cwd, arguments, command_line, return_code, errors) -> str:
         """
@@ -321,5 +274,5 @@ class ForensicStore(JSONLite):
         self.update(item_id, update)
 
 
-def connect(url: str, read_only: bool = False) -> ForensicStore:
-    return ForensicStore(url, read_only)
+def connect(url: str) -> ForensicStore:
+    return ForensicStore(url)

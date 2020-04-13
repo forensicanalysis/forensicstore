@@ -48,12 +48,10 @@ class TestJSONLite:
 
     def test_init_create(self, out_dir, data):
         store = jsonlite.connect(
-            out_dir + "/init_create.jsonlite", discriminator="type")
+            out_dir + "/init_create.jsonlite")
         store.close()
 
-        assert store.remote_is_local
         assert store.remote_fs.__class__.__name__ == "OSFS"
-        assert store.local_fs.__class__.__name__ == "OSFS"
 
         assert os.path.exists(out_dir + "/init_create.jsonlite/item.db")
 
@@ -63,30 +61,24 @@ class TestJSONLite:
     def test_init_create_ref(self, out_dir, data):
         cwd = os.getcwd()
         os.chdir(out_dir)
-        store = jsonlite.connect("init_create.jsonlite", discriminator="type")
+        store = jsonlite.connect("init_create.jsonlite")
         store.close()
         os.chdir(cwd)
 
-        assert store.remote_is_local
         assert store.remote_fs.__class__.__name__ == "OSFS"
-        assert store.local_fs.__class__.__name__ == "OSFS"
 
         assert os.path.exists(out_dir + "/init_create.jsonlite/item.db")
 
         shutil.rmtree(out_dir)
         shutil.rmtree(data)
 
-    def test_init_create_memory(self, out_dir, data):
-        mem_fs = memoryfs.MemoryFS()
-
-        store = jsonlite.connect(mem_fs, discriminator="type")
-        store.close()
-
-        assert not store.remote_is_local
-        assert store.remote_fs.__class__.__name__ == "MemoryFS"
-
-        shutil.rmtree(out_dir)
-        shutil.rmtree(data)
+#    def test_init_create_memory(self, out_dir, data):
+#        mem_fs = memoryfs.MemoryFS()
+#        store = jsonlite.connect(mem_fs)
+#        store.close()
+#        assert store.remote_fs.__class__.__name__ == "MemoryFS"
+#        shutil.rmtree(out_dir)
+#        shutil.rmtree(data)
 
     def test_init_load(self, out_dir, data):
         store = jsonlite.connect(data + "/forensicstore/example1.forensicstore")
@@ -126,7 +118,7 @@ class TestJSONLite:
 
     def test_get_not_existing(self, out_dir, data):
         store = jsonlite.connect(
-            data + "/non_existing.forensicstore", discriminator="type")
+            data + "/non_existing.forensicstore")
         with pytest.raises(KeyError):
             store.get("0-process")
         store.close()
@@ -202,8 +194,7 @@ class TestJSONLite:
 
     def test_update_type(self, out_dir, data):
         store = jsonlite.connect(data + "/forensicstore/example1.forensicstore")
-        store.update(
-            "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", {"type": "foo"})
+        store.update("process--920d7c41-0fef-4cf8-bce2-ead120f6b506", {"type": "foo"})
         assert len(list(store.all())) == 7
 
         first = store.get("foo--920d7c41-0fef-4cf8-bce2-ead120f6b506")
@@ -230,13 +221,13 @@ class TestJSONLite:
         shutil.rmtree(data)
 
     def test_import_store(self, out_dir, data):
-        import_store = jsonlite.connect(out_dir + "/tmp/tmp.jsonlite", discriminator="type")
+        import_store = jsonlite.connect(out_dir + "/tmp/tmp.jsonlite")
         with import_store.store_file("testfile.txt") as (path, io):
             io.write(123 * b'A')
             import_store.insert({"type": "foo", "export_path": path})
         import_store.close()
 
-        store = jsonlite.connect(out_dir + "/amcache/amcache.jsonlite", discriminator="type")
+        store = jsonlite.connect(out_dir + "/amcache/amcache.jsonlite")
         with store.store_file("testfile.txt") as (path, io):
             io.write(123 * b'B')
             store.insert({"type": "foo", "export_path": path})
@@ -256,7 +247,7 @@ class TestJSONLite:
 
     def test_insert_quotes(self, out_dir, data):
         store = jsonlite.connect(
-            out_dir + "/quotes.jsonlite", discriminator="type")
+            out_dir + "/quotes.jsonlite")
 
         item_id = store.insert({"type": "foo"})
         store.update(

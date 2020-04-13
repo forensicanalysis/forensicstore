@@ -45,14 +45,6 @@ func (rm *tableMap) load(key string) (value map[string]string, ok bool) {
 	return result, ok
 }
 
-/*
-func (rm *tableMap) delete(key string) {
-	rm.Lock()
-	delete(rm.internal, key)
-	rm.Unlock()
-}
-*/
-
 func (rm *tableMap) store(key string, value map[string]string) {
 	rm.Lock()
 	rm.internal[key] = value
@@ -82,14 +74,6 @@ func (rm *schemaMap) load(key string) (value *jsonschema.RootSchema, ok bool) {
 	rm.RUnlock()
 	return result, ok
 }
-
-/*
-func (rm *schemaMap) delete(key string) {
-	rm.Lock()
-	delete(rm.internal, key)
-	rm.Unlock()
-}
-*/
 
 func (rm *schemaMap) store(key string, value *jsonschema.RootSchema) {
 	rm.Lock()
