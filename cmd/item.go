@@ -42,6 +42,7 @@ func getCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer store.Close()
 			item, err := store.Get(id)
 			if err != nil {
 				return err
@@ -64,6 +65,7 @@ func selectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer store.Close()
 			item, err := store.Select(itemType, nil)
 			if err != nil {
 				return err
@@ -85,6 +87,7 @@ func allCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer store.Close()
 			item, err := store.All()
 			if err != nil {
 				return err
@@ -108,6 +111,7 @@ func insertCommand() *cobra.Command {
 				fmt.Println(err)
 				return err
 			}
+			defer store.Close()
 
 			item := map[string]interface{}{}
 			err = json.Unmarshal([]byte(jsonData), &item)
