@@ -707,9 +707,7 @@ func TestJSONLite_StoreFile(t *testing.T) {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
-			importPath := filepath.Join(testDir, "test.txt")
-
-			gotStorePath, gotFile, err := db.StoreFile(importPath)
+			gotStorePath, gotFile, err := db.StoreFile(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("JSONLite.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
