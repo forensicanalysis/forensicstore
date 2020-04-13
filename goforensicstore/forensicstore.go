@@ -56,7 +56,7 @@ func New(store gostore.Store) (*ForensicStore, error) {
 
 // NewJSONLite creates or opens a forensicstore from an JSONLite database.
 func NewJSONLite(remoteURL string) (*ForensicStore, error) {
-	store, err := gojsonlite.New(remoteURL, "type")
+	store, err := gojsonlite.New(remoteURL)
 	if err != nil {
 		return nil, err
 	}

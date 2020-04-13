@@ -80,7 +80,7 @@ type JSONLite struct {
 }
 
 // New creates or opens a JSONLite database.
-func New(url string, discriminator string) (*JSONLite, error) { // nolint:gocyclo
+func New(url string) (*JSONLite, error) { // nolint:gocyclo
 	db := &JSONLite{}
 	if url[len(url)-1:] == "/" {
 		url = url[:len(url)-1]
@@ -163,6 +163,13 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 		return nil, errors.Wrap(err, "could not flatten item")
 	}
 
+	valErr, err := db.validateItemSchema(firstItem)
+	if err != nil {
+		return nil, errors.Wrap(err, "validation failed")
+	}
+	if len(valErr) > 0 {
+		return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+	}
 	if err := db.ensureTable(flatItem, firstItem); err != nil {
 		return nil, errors.Wrap(err, "could not ensure table")
 	}
@@ -178,17 +185,13 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 	var columnValues []interface{}
 	var uids []string
 	for _, item := range items {
-		// if db.Strict() {
-		db.sqlMutex.Lock()
 		valErr, err := db.validateItemSchema(item)
-		db.sqlMutex.Unlock()
 		if err != nil {
 			return nil, errors.Wrap(err, "validation failed")
 		}
 		if len(valErr) > 0 {
 			return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
 		}
-		// }
 
 		flatItem, err := goflatten.Flatten(item)
 		if err != nil {
@@ -387,9 +390,7 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 		flaws = append(flaws, "item needs to have a discriminator")
 	}
 
-	db.sqlMutex.Lock()
 	valErr, err := db.validateItemSchema(item)
-	db.sqlMutex.Unlock()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -685,14 +686,6 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 	defer db.sqlMutex.Unlock()
 
 	if table, ok := db.tables.load(itemType); !ok {
-		valErr, err := db.validateItemSchema(item)
-		if err != nil {
-			return errors.Wrap(err, "validation failed")
-		}
-		if len(valErr) > 0 {
-			return fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
-		}
-
 		if err := db.createTable(flatItem); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
@@ -705,13 +698,6 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 		}
 
 		if len(missingColumns) > 0 {
-			valErr, err := db.validateItemSchema(item)
-			if err != nil {
-				return err
-			}
-			if len(valErr) > 0 {
-				return fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
-			}
 			if err := db.addMissingColumns(item[discriminator].(string), flatItem, missingColumns); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("adding missing column failed %v", missingColumns))
 			}
