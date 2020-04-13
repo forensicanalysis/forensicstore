@@ -74,6 +74,7 @@ func Validate() *cobra.Command {
 				fmt.Println(err)
 				return err
 			}
+			defer store.Close()
 			valErr, err := store.Validate()
 			if err != nil {
 				fmt.Println(err)
