@@ -68,56 +68,49 @@ const discriminator = "type"
 // JSONLite is a file based strorage for json data.
 type JSONLite struct {
 	afero.Fs
-	NewDB             bool
-	remoteURL         string
-	remoteStoreFolder string
-	remoteDBFile      string
-	cursor            *sql.DB
-	sqlMutex          sync.RWMutex
-	fileMutex         sync.RWMutex
-	tables            *tableMap
-	schemas           *schemaMap
-}
-
-func toFS(url string) (fs afero.Fs, path string, isLocal bool) {
-	// TODO: use path lib?
-	// fs = afero.NewBasePathFs(afero.NewOsFs(), filepath.Directory(url))
-	// return fs, filepath.Base(url), true
-	// bpfs.RealPath(...)
-	return afero.NewOsFs(), url, true
+	NewDB       bool
+	url         string
+	storeFolder string
+	dbFile      string
+	cursor      *sql.DB
+	sqlMutex    sync.RWMutex
+	fileMutex   sync.RWMutex
+	tables      *tableMap
+	schemas     *schemaMap
 }
 
 // New creates or opens a JSONLite database.
-func New(remoteURL string, discriminator string) (*JSONLite, error) { // nolint:gocyclo
+func New(url string, discriminator string) (*JSONLite, error) { // nolint:gocyclo
 	db := &JSONLite{}
-	if remoteURL[len(remoteURL)-1:] == "/" {
-		remoteURL = remoteURL[:len(remoteURL)-1]
+	if url[len(url)-1:] == "/" {
+		url = url[:len(url)-1]
 	}
-	db.remoteURL = remoteURL
+	db.url = url
 
-	db.Fs, db.remoteStoreFolder, _ = toFS(remoteURL)
-	db.remoteDBFile = filepath.Join(db.remoteStoreFolder, "item.db")
+	db.Fs = afero.NewOsFs()
+	db.storeFolder = url
+	db.dbFile = filepath.Join(db.storeFolder, "item.db")
 
-	exists, err := afero.Exists(db, db.remoteDBFile)
+	exists, err := afero.Exists(db, db.dbFile)
 	if err != nil {
 		return nil, err
 	}
 	db.NewDB = !exists
 
-	err = db.MkdirAll(db.remoteStoreFolder, 0755)
+	err = db.MkdirAll(db.storeFolder, 0755)
 	if err != nil {
 		return nil, err
 	}
 
 	if db.NewDB {
-		log.Printf("Creating store %s", db.remoteStoreFolder)
-		_, err := db.Create(db.remoteDBFile)
+		log.Printf("Creating store %s", db.storeFolder)
+		_, err := db.Create(db.dbFile)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	db.cursor, err = sql.Open("sqlite3", db.remoteDBFile)
+	db.cursor, err = sql.Open("sqlite3", db.dbFile)
 	if err != nil {
 		return nil, err
 	}
@@ -284,7 +277,7 @@ func (db *JSONLite) Update(id string, partialItem Item) (string, error) {
 
 // StoreFile adds a file to the database folder.
 func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.File, err error) {
-	err = db.MkdirAll(filepath.Join(db.remoteStoreFolder, filepath.Dir(filePath)), 0755)
+	err = db.MkdirAll(filepath.Join(db.storeFolder, filepath.Dir(filePath)), 0755)
 	if err != nil {
 		return "", nil, err
 	}
@@ -292,7 +285,7 @@ func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.Fil
 	db.fileMutex.Lock()
 	i := 0
 	ext := filepath.Ext(filePath)
-	remoteStoreFilePath := path.Join(db.remoteStoreFolder, filePath)
+	remoteStoreFilePath := path.Join(db.storeFolder, filePath)
 	base := remoteStoreFilePath[:len(remoteStoreFilePath)-len(ext)]
 
 	exists, err := afero.Exists(db, remoteStoreFilePath)
@@ -312,12 +305,12 @@ func (db *JSONLite) StoreFile(filePath string) (storePath string, file afero.Fil
 
 	file, err = db.Create(remoteStoreFilePath)
 	db.fileMutex.Unlock()
-	return remoteStoreFilePath[len(db.remoteStoreFolder)+1:], file, err
+	return remoteStoreFilePath[len(db.storeFolder)+1:], file, err
 }
 
 // LoadFile opens a file from the database folder.
 func (db *JSONLite) LoadFile(filePath string) (file afero.File, err error) {
-	return db.Open(path.Join(db.remoteStoreFolder, filePath))
+	return db.Open(path.Join(db.storeFolder, filePath))
 }
 
 // Close saves and closes the database.
@@ -353,11 +346,11 @@ func (db *JSONLite) Validate() (flaws []string, err error) {
 
 	foundFiles := map[string]bool{}
 	var additionalFiles []string
-	err = afero.Walk(db, db.remoteStoreFolder, func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(db, db.storeFolder, func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, "/item.db-journal") || info.IsDir() {
 			return nil
 		}
-		path = path[len(db.remoteStoreFolder):]
+		path = path[len(db.storeFolder):]
 
 		foundFiles[path] = true
 		if _, ok := expectedFiles[path]; !ok {
@@ -413,7 +406,7 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 
 			itemExpectedFiles = append(itemExpectedFiles, "/"+exportPath)
 
-			exits, err := afero.Exists(db, filepath.Join(db.remoteStoreFolder, exportPath))
+			exits, err := afero.Exists(db, filepath.Join(db.storeFolder, exportPath))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -422,7 +415,7 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 			}
 
 			if size, ok := item["size"]; ok {
-				fi, err := db.Stat(filepath.Join(db.remoteStoreFolder, exportPath))
+				fi, err := db.Stat(filepath.Join(db.storeFolder, exportPath))
 				if err != nil {
 					return nil, nil, err
 				}
@@ -446,7 +439,7 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 						continue
 					}
 
-					f, err := db.Open(filepath.Join(db.remoteStoreFolder, exportPath))
+					f, err := db.Open(filepath.Join(db.storeFolder, exportPath))
 					if err != nil {
 						return nil, nil, err
 					}
@@ -473,7 +466,7 @@ func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
 
 	rootSchema, err := db.Schema(item[discriminator].(string))
 	if err != nil {
-		if err == ErrSchemaNotFound {
+		if err == errSchemaNotFound {
 			return nil, nil // no schema for item
 		}
 		return flaws, errors.Wrap(err, "could not get schema")
@@ -747,29 +740,9 @@ func (db *JSONLite) createTable(flatItem Item) error {
 
 func getSQLDataType(value interface{}) string {
 	switch value.(type) {
-	case int:
+	case int, int16, int8, int32, int64, uint, uint16, uint8, uint32, uint64:
 		return integer
-	case int16:
-		return integer
-	case int8:
-		return integer
-	case int32:
-		return integer
-	case int64:
-		return integer
-	case uint:
-		return integer
-	case uint16:
-		return integer
-	case uint8:
-		return integer
-	case uint32:
-		return integer
-	case uint64:
-		return integer
-	case float32:
-		return numeric
-	case float64:
+	case float32, float64:
 		return numeric
 	default:
 		return text
@@ -800,7 +773,7 @@ func (db *JSONLite) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	return nil
 }
 
-var ErrSchemaNotFound = errors.New("schema not found")
+var errSchemaNotFound = errors.New("schema not found")
 
 // Schema gets a single schema from the database.
 func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
@@ -808,5 +781,5 @@ func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 		return schema, nil
 	}
 
-	return nil, ErrSchemaNotFound
+	return nil, errSchemaNotFound
 }

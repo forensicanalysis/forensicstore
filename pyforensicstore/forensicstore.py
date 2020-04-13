@@ -25,14 +25,13 @@ A ForensicStore is a database that can be used to store forensic items and files
 """
 from datetime import datetime
 import json
-import uuid
 import os
 from contextlib import contextmanager
 from typing import Union
 
 from fs import path
 
-from jsonlite import JSONLite, open_fs_file
+from jsonlite import JSONLite
 
 
 class ForensicStore(JSONLite):

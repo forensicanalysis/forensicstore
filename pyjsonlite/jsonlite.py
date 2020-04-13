@@ -25,15 +25,13 @@ JSONLite is a database that can be used to store items and files.
 """
 import hashlib
 import sqlite3
-import tempfile
-import json
 import uuid
 from contextlib import contextmanager
 import logging
 from typing import Any
 
 import jsonschema
-from fs import path, open_fs, errors, copy, base, osfs
+from fs import path, open_fs, errors, base
 import flatten_json
 from flatten_json import flatten, unflatten_list
 
@@ -57,7 +55,7 @@ def open_fs_file(location: str, create: bool = False) -> (base.FS, str):
         raise RuntimeError("Could not create %s (%s)" % (location, error))
     return file_system, filename
 
-discriminator = "type"
+DISCRIMINATOR = "type"
 
 class JSONLite:
     """
@@ -97,11 +95,11 @@ class JSONLite:
         :return: ID if the inserted item
         :rtype: int
         """
-        if discriminator not in item:
-            raise KeyError("Missing discriminator %s in item" % discriminator)
+        if DISCRIMINATOR not in item:
+            raise KeyError("Missing discriminator %s in item" % DISCRIMINATOR)
         # add uuid
         if 'uid' not in item:
-            item['uid'] = item[discriminator] + '--' + str(uuid.uuid4())
+            item['uid'] = item[DISCRIMINATOR] + '--' + str(uuid.uuid4())
 
         column_names, column_values, flat_item, item = self._flatten_item(item)
 
@@ -113,7 +111,7 @@ class JSONLite:
         # insert item
         cur = self.connection.cursor()
         query = "INSERT INTO \"{table}\" ({columns}) VALUES ({values})".format(
-            table=item[discriminator],
+            table=item[DISCRIMINATOR],
             columns=", ".join(['"' + c + '"' for c in column_names]),
             values=", ".join(['?'] * len(column_values))
         )
@@ -170,14 +168,14 @@ class JSONLite:
         cur = self.connection.cursor()
 
         updated_item = self.get(item_id)
-        old_discriminator = updated_item[discriminator]
+        old_discriminator = updated_item[DISCRIMINATOR]
         updated_item.update(partial_item)
 
         _, _, item_uuid = item_id.partition("--")
 
         # type changed
-        if discriminator in partial_item and old_discriminator != partial_item[discriminator]:
-            updated_item["uid"] = partial_item[discriminator] + \
+        if DISCRIMINATOR in partial_item and old_discriminator != partial_item[DISCRIMINATOR]:
+            updated_item["uid"] = partial_item[DISCRIMINATOR] + \
                 '--' + item_uuid
             cur.execute("DELETE FROM \"{table}\" WHERE uid=?".format(
                 table=old_discriminator), [item_id])
@@ -195,7 +193,7 @@ class JSONLite:
         replace = ", ".join(replacements)
 
         values.append(item_id)
-        table = updated_item[discriminator]
+        table = updated_item[DISCRIMINATOR]
         cur.execute("UPDATE \"{table}\" SET {replace} WHERE uid=?".format(
             table=table, replace=replace), values)
         cur.close()
@@ -289,7 +287,7 @@ class JSONLite:
         validation_errors = []
         expected_files = set()
 
-        if discriminator not in item:
+        if DISCRIMINATOR not in item:
             validation_errors.append("Item needs to have a discriminator, got %s" % item)
 
         validation_errors += self.validate_item_schema(item)
@@ -338,7 +336,7 @@ class JSONLite:
     def validate_item_schema(self, item):
         validation_errors = []
 
-        item_type = item[discriminator]
+        item_type = item[DISCRIMINATOR]
         schema = self._schema(item_type)
         if schema is None:
             return validation_errors
@@ -460,7 +458,7 @@ class JSONLite:
 
     def _ensure_table(self, column_names: [], flat_item: dict, item: dict):
         # create table if not exits
-        if item[discriminator] not in self._tables:
+        if item[DISCRIMINATOR] not in self._tables:
             if self.validate_item_schema(item):
                 validation_errors = self.validate_item_schema(item)
                 if validation_errors:
@@ -469,28 +467,28 @@ class JSONLite:
         # add missing columns
         else:
             missing_columns = set(flat_item.keys()) - \
-                set(self._tables[item[discriminator]])
+                set(self._tables[item[DISCRIMINATOR]])
             if missing_columns:
                 validation_errors = self.validate_item_schema(item)
                 if validation_errors:
                     raise TypeError("item could not be validated %s" % validation_errors)
                 self._add_missing_columns(
-                    item[discriminator], flat_item, missing_columns)
+                    item[DISCRIMINATOR], flat_item, missing_columns)
 
     def _create_table(self, column_names: [], flat_item: dict):
-        self._tables[flat_item[discriminator]] = {
-            'uid': 'TEXT', discriminator: 'TEXT'}
-        columns = "uid TEXT PRIMARY KEY, %s TEXT NOT NULL" % discriminator
+        self._tables[flat_item[DISCRIMINATOR]] = {
+            'uid': 'TEXT', DISCRIMINATOR: 'TEXT'}
+        columns = "uid TEXT PRIMARY KEY, %s TEXT NOT NULL" % DISCRIMINATOR
         for column in column_names:
-            if column not in [discriminator, 'uid']:
+            if column not in [DISCRIMINATOR, 'uid']:
                 sql_data_type = self._get_sql_data_type(flat_item[column])
-                self._tables[flat_item[discriminator]
+                self._tables[flat_item[DISCRIMINATOR]
                              ][column] = sql_data_type
                 columns += ", \"{column}\" {sql_data_type}".format(
                     column=column, sql_data_type=sql_data_type)
         cur = self.connection.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS \"{table}\" ({columns})".format(
-            table=flat_item[discriminator], columns=columns
+            table=flat_item[DISCRIMINATOR], columns=columns
         ))
         cur.close()
 
