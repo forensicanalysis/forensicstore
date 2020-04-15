@@ -42,8 +42,6 @@ example.forensicstore/
 
 
 
-## Go package
-
 ### Installation
 
 
@@ -85,6 +83,7 @@ func main() {
 }
 
 ```
+
 
 ## Contact
 
