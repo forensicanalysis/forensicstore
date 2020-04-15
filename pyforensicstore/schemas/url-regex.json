@@ -1,8 +1,0 @@
-{
-  "$id": "url-regex",
-  "$schema": "http://json-schema.org/draft-04/schema#",
-  "title": "url-regex",
-  "description": "Matches the elements of a URL using a regular expression.",
-  "type": "string",
-  "pattern": "^.+://.+$"
-}

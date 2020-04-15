@@ -42,29 +42,6 @@ example.forensicstore/
 
 
 
-## Python library
-
-### Installation
-
-Python installation can be easily done via pip:
-
-```bash
-pip install forensicstore
-```
-
-### Usage
-
-```python
-import forensicstore
-
-if __name__ == '__main__':
-    store = forensicstore.connect("example1.forensicstore")
-    store.insert({"type": "file", "name": "test.txt"})
-    store.close()
-```
-
-The full documentation can be found in [the documentation](https://forensicanalysis.github.io/forensicstore/pyforensicstore/docs/html/).
-
 ## Go package
 
 ### Installation
@@ -108,7 +85,6 @@ func main() {
 }
 
 ```
-
 
 ## Contact
 
