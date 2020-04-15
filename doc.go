@@ -19,7 +19,7 @@
 //
 // Author(s): Jonas Plum
 
-// Package forensicstore contains Go packages and Python libraries to create,
+// Package forensicstore can create,
 // access and process forensic artifacts bundled in so called forensicstores
 // (a database for metadata and subfolders with forensic artifacts).
 //

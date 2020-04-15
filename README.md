@@ -12,7 +12,7 @@
 ![](docs/forensicstore.png)
 
 
-The forensicstore project contains Go packages and Python libraries to create,
+The forensicstore project can create,
 access and process forensic artifacts bundled in so called forensicstores
 (a database for metadata and subfolders with forensic artifacts).
 
