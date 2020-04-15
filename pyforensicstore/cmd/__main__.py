@@ -79,10 +79,6 @@ def main():
         if args.nofail:
             sys.exit(0)
         sys.exit(len(errors))
-    elif args.root_command == "import":
-        store = forensicstore.connect(args.store)
-        store.import_forensicstore(args.url)
-        store.close()
     elif args.root_command == "item":
         if args.command == "get":
             store = forensicstore.connect(args.store)

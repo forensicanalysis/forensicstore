@@ -140,92 +140,6 @@ class TestForensicStore:
         shutil.rmtree(out_dir)
         shutil.rmtree(data)
 
-    def test_import_store(self, out_dir, data):
-        import_store = forensicstore.connect(out_dir + "/tmp/tmp.forensicstore")
-        file_date = datetime.datetime(2014, 9, 11, 21, 50, 18, 301000)
-        origin = {
-            "path": "C:\\Windows\\appcompat\\Programs\\Amcache.hve",
-            "volume": "2"
-        }
-        file1 = import_store.add_file_item("WindowsAMCacheHveFile", "Amcache.hve", file_date, file_date, file_date,
-                                           origin, [])
-        with import_store.add_file_item_export(file1) as export:
-            export.write(123 * b'A')
-        import_store.close()
-
-        store = forensicstore.connect(out_dir + "/amcache/amcache.forensicstore")
-        file1 = store.add_file_item("WindowsAMCacheHveFile", "Amcache.hve", file_date, file_date, file_date, origin, [])
-        with store.add_file_item_export(file1) as export:
-            export.write(123 * b'B')
-
-        store.import_forensicstore(out_dir + "/tmp/tmp.forensicstore")
-
-        items = store.all()
-        assert len(list(items)) == 2
-        with open(out_dir + "/amcache/amcache.forensicstore/WindowsAMCacheHveFile/Amcache.hve", 'rb') as io:
-            assert io.read() == 123 * b'B'
-        with open(out_dir + "/amcache/amcache.forensicstore/WindowsAMCacheHveFile/Amcache_0.hve", 'rb') as io:
-            assert io.read() == 123 * b'A'
-
-        store.close()
-        shutil.rmtree(out_dir)
-        shutil.rmtree(data)
-
-    def test_import_stix(self, out_dir, data):
-        import_data = {
-            "last_observed": "2019-03-18T13:45:26.407Z",
-            "type": "observed-data",
-            "created": "2019-03-18T13:45:26.407Z",
-            "objects": {
-                "0": {
-                    "artifact": "WindowsAMCacheHveFile",
-                    "type": "file",
-                    "hashes": {
-                        "MD5": "9b573b2e4c4b91558f6afd65262a6fb9",
-                        "SHA-1": "932567a1cfc045b729abdb52ed6c5c6acf59f369"
-                    },
-                    "size": 123,
-                    "name": "Amcache.hve",
-                    "created": "2014-09-11T21:50:18.301Z",
-                    "modified": "2014-09-11T21:50:18.301Z",
-                    "accessed": "2014-09-11T21:50:18.301Z",
-                    "origin": {
-                        "path": "C:\\Windows\\appcompat\\Programs\\Amcache.hve",
-                        "volume": "2"
-                    },
-                    "export_path": "WindowsAMCacheHveFile/Amcache.hve"
-                }
-            }
-        }
-        with open(out_dir + "/stix.json", 'w+') as io:
-            json.dump(import_data, io)
-            shutil.copytree(
-                data + "/forensicstore/example1.forensicstore/WindowsAMCacheHveFile", out_dir + "/WindowsAMCacheHveFile"
-            )
-
-        store = forensicstore.connect(out_dir + "/amcache/amcache.forensicstore")
-        file_date = datetime.datetime(2014, 9, 11, 21, 50, 18, 301000)
-        origin = {
-            "path": "C:\\Windows\\appcompat\\Programs\\Amcache.hve",
-            "volume": "2"
-        }
-        file1 = store.add_file_item("WindowsAMCacheHveFile", "Amcache.hve", file_date, file_date, file_date, origin, [])
-        with store.add_file_item_export(file1) as export:
-            export.write(123 * b'B')
-
-        store.import_stix(out_dir + "/stix.json")  # , OSFS(path.join(os.getcwd(), "test/data/valid")))
-
-        items = store.all()
-        assert len(list(items)) == 2
-        with open(out_dir + "/amcache/amcache.forensicstore/WindowsAMCacheHveFile/Amcache.hve", 'rb') as io:
-            assert io.read() == 123 * b'B'
-        with open(out_dir + "/amcache/amcache.forensicstore/WindowsAMCacheHveFile/Amcache_0.hve", 'rb') as io:
-            assert io.read() == 123 * b'A'
-
-        store.close()
-        shutil.rmtree(out_dir)
-        shutil.rmtree(data)
-
     def test_add_multi_write_file_item(self, out_dir, data):
         store = forensicstore.connect(out_dir + "/amcache.forensicstore")
         file_date = datetime.datetime(2014, 9, 11, 21, 50, 18, 301000)
@@ -276,31 +190,6 @@ class TestForensicStore:
         first = list(items).pop()
         del first["uid"]
         assert first == EXAMPLE_FORENSICSTORE[5]
-
-        store.close()
-        shutil.rmtree(out_dir)
-        shutil.rmtree(data)
-
-    def test_parse(self, out_dir, data):
-        store = forensicstore.connect(out_dir + "/parse.forensicstore")
-        store.import_stix(data + "/json/example1.json")
-
-        file = store.select("file", [{"origin.path": "C:\\Windows\\appcompat\\Programs\\Amcache.hve"}])
-        assert list(file)[0]["hashes"]["MD5"] == "9b573b2e4c4b91558f6afd65262a6fb9"
-
-        reg_key = list(store.select(
-            "windows-registry-key",
-            [{"key": 'HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Nls\\CodePage'}]
-        ))
-        assert reg_key[0]["values"][0]["data"] == '1252'
-
-        store.export_stix(out_dir + "/stix.json")
-        with open(out_dir + "/stix.json") as io:
-            objects = list(json.load(io)["objects"].values())
-            for obj in objects:
-                del obj["uid"]
-            assert sorted(objects, key=lambda k: k['artifact']) == sorted(EXAMPLE_FORENSICSTORE,
-                                                                          key=lambda k: k['artifact'])
 
         store.close()
         shutil.rmtree(out_dir)

@@ -66,7 +66,6 @@ class TestValidate:
 
     def test_add_item_with_empty_value(self, out_dir, data):
         store = forensicstore.connect(out_dir + "/invalid.forensicstore")
-        store.set_strict(True)
 
         with pytest.raises(TypeError):
             store.insert({"type": "file", "name": "foo.txt", "created": ""})

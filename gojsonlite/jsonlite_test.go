@@ -22,6 +22,7 @@
 package gojsonlite
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -31,6 +32,7 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/qri-io/jsonschema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -98,19 +100,18 @@ func TestNew(t *testing.T) {
 	defer teardown(t)
 
 	type args struct {
-		remoteUrl     string
-		discriminator string
+		remoteUrl string
 	}
 	tests := []struct {
 		name    string
 		args    args
 		wantErr bool
 	}{
-		{"Create store", args{testDir + "new.jsonlite", "type"}, false},
+		{"Create store", args{testDir + "new.jsonlite"}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.args.remoteUrl, tt.args.discriminator)
+			_, err := New(tt.args.remoteUrl)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -151,7 +152,7 @@ func TestJSONLite_Insert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -190,7 +191,7 @@ func TestJSONLite_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log.Print("get2")
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			log.Print("get3")
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
@@ -228,7 +229,7 @@ func TestJSONLite_QueryJSONLite(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -289,126 +290,6 @@ func TestJSONLite_Update(t *testing.T) {
 }
 */
 
-func TestJSONLite_Discriminator(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{"Discriminator", fields{testDir + ExampleStore}, "type"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			if got := db.Discriminator(); got != tt.want {
-				t.Errorf("JSONLite.Discriminator() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestJSONLite_SetDiscriminator(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	type args struct {
-		discriminator string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		{"Set Discriminator", fields{testDir + ExampleStore}, args{"type"}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			db.SetDiscriminator(tt.args.discriminator)
-			assert.Equal(t, tt.args.discriminator, db.Discriminator())
-		})
-	}
-}
-
-func TestJSONLite_Strict(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		{"Strict", fields{testDir + ExampleStore}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			if got := db.Strict(); got != tt.want {
-				t.Errorf("JSONLite.Strict() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestJSONLite_SetStrict(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	type args struct {
-		strict bool
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-	}{
-		{"Discriminator", fields{testDir + ExampleStore}, args{false}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			db.SetStrict(tt.args.strict)
-			assert.Equal(t, tt.args.strict, db.Strict())
-		})
-	}
-}
-
 func TestJSONLite_Select(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
@@ -433,7 +314,7 @@ func TestJSONLite_Select(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -467,7 +348,7 @@ func TestJSONLite_All(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -597,7 +478,7 @@ func TestJSONLite_getTables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -636,7 +517,7 @@ func TestJSONLite_ensureTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -669,7 +550,7 @@ func TestJSONLite_createTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -703,81 +584,6 @@ func Test_getSQLDataType(t *testing.T) {
 	}
 }
 
-func TestJSONLite_createOptionsTable(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-	}{
-		{"Create Option Table", fields{testDir + ExampleStore}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			if err := db.createOptionsTable(); (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.createOptionsTable() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestJSONLite_option(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	type fields struct {
-		url string
-	}
-	type args struct {
-		key   string
-		value interface{}
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    interface{}
-		wantErr bool
-	}{
-		{"Option int", fields{testDir + ExampleStore}, args{"foo", 1}, 1, false},
-		{"Option string", fields{testDir + ExampleStore}, args{"foo", "bar"}, "bar", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-
-			if err := db.setOption(tt.args.key, tt.args.value); (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.setOption() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			got, err := db.option(tt.args.key)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.option() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.args.value) {
-				t.Errorf("JSONLite.option() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestJSONLite_Validate(t *testing.T) {
 	testDir := setup(t)
 
@@ -794,7 +600,7 @@ func TestJSONLite_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url, "type")
+			db, err := New(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -808,6 +614,128 @@ func TestJSONLite_Validate(t *testing.T) {
 			}
 			if !reflect.DeepEqual(gotE, tt.wantE) {
 				t.Errorf("JSONLite.Validate() = %v, want %v", gotE, tt.wantE)
+			}
+		})
+	}
+}
+
+func TestJSONLite_validateItemSchema(t *testing.T) {
+	testDir := setup(t)
+
+	content := []byte(`{
+	"$id": "file",
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"title": "file",
+	"type": "object",
+	"allOf": [{"properties": {
+		"type": {"type": "string","enum": ["file"]},
+		"size": {"type": "integer","minimum": 0},
+		"name": {"type": "string"}
+	}}],
+	"anyOf": [{"required": ["name"]}]
+	}`)
+
+	type fields struct {
+		url string
+	}
+	type args struct {
+		item Item
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantFlaws int
+		wantErr   bool
+	}{
+		{"valid", fields{testDir + ExampleStore}, args{Item{"type": "file", "name": "foo.txt"}}, 0, false},
+		{"invalid", fields{testDir + ExampleStore}, args{Item{"type": "file", "foo": "foo.txt"}}, 1, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, err := New(tt.fields.url)
+			if err != nil || db == nil {
+				t.Fatalf("Database could not be created %v\n", err)
+			}
+
+			schema := &jsonschema.RootSchema{}
+			if err := json.Unmarshal(content, schema); err != nil {
+				t.Errorf("unmarshal error")
+			}
+
+			err = db.SetSchema(schema.ID, schema)
+			if err != nil {
+				t.Error(err)
+			}
+
+			gotFlaws, err := db.validateItemSchema(tt.args.item)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("JSONLite.validateItemSchema() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if len(gotFlaws) != tt.wantFlaws {
+				t.Errorf("JSONLite.validateItemSchema() = %v, want %v", gotFlaws, tt.wantFlaws)
+			}
+		})
+	}
+}
+
+func TestJSONLite_StoreFile(t *testing.T) {
+	testDir := setup(t)
+
+	type fields struct {
+		url string
+	}
+	type args struct {
+		filePath string
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		args          args
+		wantStorePath string
+		wantData      []byte
+		wantErr       bool
+	}{
+		{"first file", fields{testDir + ExampleStore}, args{"test.txt"}, "test.txt", []byte("foo"), false},
+		{"second file", fields{testDir + ExampleStore}, args{"test.txt"}, "test_0.txt", []byte("bar"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, err := New(tt.fields.url)
+			if err != nil || db == nil {
+				t.Fatalf("Database could not be created %v\n", err)
+			}
+
+			gotStorePath, gotFile, err := db.StoreFile(tt.args.filePath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("JSONLite.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			_, err = gotFile.Write(tt.wantData)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = gotFile.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if filepath.Base(gotStorePath) != tt.wantStorePath {
+				t.Errorf("JSONLite.StoreFile() gotStorePath = %v, want %v", filepath.Base(gotStorePath), tt.wantStorePath)
+			}
+
+			load, err := db.LoadFile(gotStorePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			b, err := ioutil.ReadAll(load)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(b, tt.wantData) {
+				t.Errorf("JSONLite.StoreFile() gotFile = %v, want %v", b, tt.wantData)
 			}
 		})
 	}
