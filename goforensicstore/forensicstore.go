@@ -25,13 +25,14 @@ package goforensicstore
 import (
 	"encoding/json"
 	"fmt"
+	"path"
+	"reflect"
+	"strings"
+
 	"github.com/fatih/structs"
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
-	"path"
-	"reflect"
-	"strings"
 
 	"github.com/forensicanalysis/forensicstore/gojsonlite"
 	"github.com/forensicanalysis/forensicstore/gostore"

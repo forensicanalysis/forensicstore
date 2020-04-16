@@ -22,8 +22,9 @@
 package goforensicstore
 
 import (
-	"github.com/google/uuid"
 	"log"
+
+	"github.com/google/uuid"
 )
 
 // File implements a STIX 2.1 File Object
@@ -43,6 +44,7 @@ type File struct {
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 }
 
+// NewFile creates a new STIX 2.1 File Object
 func NewFile() *File {
 	return &File{ID: "file--" + uuid.New().String(), Type: "file"}
 }
@@ -66,6 +68,7 @@ type Directory struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
+// NewDirectory creates a new STIX 2.1 Directory Object
 func NewDirectory() *Directory {
 	return &Directory{ID: "directory--" + uuid.New().String(), Type: "directory"}
 }
@@ -85,6 +88,7 @@ type RegistryValue struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
+// NewRegistryValue creates a new STIX 2.1 Windows™ Registry Value Type
 func NewRegistryValue() *RegistryValue {
 	return &RegistryValue{}
 }
@@ -107,6 +111,7 @@ type RegistryKey struct {
 	Errors   []interface{}   `json:"errors,omitempty"`
 }
 
+// NewRegistryKey creates a new STIX 2.1 Windows™ Registry Key Object
 func NewRegistryKey() *RegistryKey {
 	return &RegistryKey{ID: "windows-registry-key--" + uuid.New().String(), Type: "windows-registry-key"}
 }
@@ -135,6 +140,7 @@ type Process struct {
 	Errors      []interface{} `json:"errors,omitempty"`
 }
 
+// NewProcess creates a new STIX 2.1 Process Object
 func NewProcess() *Process {
 	return &Process{ID: "process--" + uuid.New().String(), Type: "process"}
 }

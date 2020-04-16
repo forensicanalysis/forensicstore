@@ -777,6 +777,7 @@ func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	return nil, errSchemaNotFound
 }
 
+// Schemas gets all schemas from the database.
 func (db *JSONLite) Schemas() []*jsonschema.RootSchema {
 	return db.schemas.values()
 }
