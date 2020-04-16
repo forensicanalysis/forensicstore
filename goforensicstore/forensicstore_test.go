@@ -67,23 +67,27 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
-	myfile := File{
-		Name: "test",
-		Type: "file",
-	}
+	myfile := NewFile()
+	myfile.Name = "test.txt"
 
-	type fields struct {
-		Items []interface{}
-	}
+	myfile2 := struct {
+		Type string
+		Name int
+	}{"file", 1}
+
+	myfile3 := File{Type: "file"}
+
 	type args struct {
 		item interface{}
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
+		name    string
+		args    args
+		wantErr bool
 	}{
-		{"Insert Struct", fields{}, args{myfile}},
+		{"valid", args{myfile}, false},
+		{"wrong schema", args{myfile2}, true},
+		{"empty file item", args{myfile3}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -92,8 +96,9 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err = store.InsertStruct(tt.args.item)
-			if err != nil {
-				t.Fatal(err)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InsertStruct() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
 		})
 	}

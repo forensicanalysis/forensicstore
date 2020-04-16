@@ -154,7 +154,12 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 		return nil, errors.New("missing discriminator in item")
 	}
 
-	if _, ok := firstItem["uid"]; !ok {
+	// map id => uid
+	if uid, ok := firstItem["id"]; ok {
+		firstItem["uid"] = fmt.Sprint(uid)
+	} else if uid, ok := firstItem["uid"]; ok {
+		firstItem["uid"] = fmt.Sprint(uid)
+	} else {
 		firstItem["uid"] = firstItem[discriminator].(string) + "--" + uuid.New().String()
 	}
 
@@ -197,9 +202,16 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 		if err != nil {
 			return nil, errors.Wrap(err, "could not flatten item")
 		}
-		if _, ok := flatItem["uid"]; !ok {
+
+		// map id => uid
+		if uid, ok := flatItem["id"]; ok {
+			flatItem["uid"] = fmt.Sprint(uid)
+		} else if uid, ok := flatItem["uid"]; ok {
+			flatItem["uid"] = fmt.Sprint(uid)
+		} else {
 			flatItem["uid"] = flatItem[discriminator].(string) + "--" + uuid.New().String()
 		}
+
 		for _, name := range columnNames {
 			columnValues = append(columnValues, flatItem[name])
 		}
@@ -463,24 +475,12 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 }
 
 func (db *JSONLite) validateItemSchema(item Item) (flaws []string, err error) {
-	flaws = []string{}
-
 	rootSchema, err := db.Schema(item[discriminator].(string))
 	if err != nil {
 		if err == errSchemaNotFound {
 			return nil, nil // no schema for item
 		}
-		return flaws, errors.Wrap(err, "could not get schema")
-	}
-
-	for _, schemaName := range db.schemas.keys() {
-		schema, _ := db.schemas.load(schemaName)
-		jsonschema.DefaultSchemaPool["jsonlite:"+schemaName] = &schema.Schema // TODO fill cache only once
-	}
-
-	err = rootSchema.FetchRemoteReferences()
-	if err != nil {
-		return flaws, errors.Wrap(err, "could not FetchRemoteReferences")
+		return nil, errors.Wrap(err, "could not get schema")
 	}
 
 	var i map[string]interface{} = item
@@ -614,13 +614,20 @@ func (db *JSONLite) rowsToItems(rows *sql.Rows) (items []Item, err error) {
 				case []uint8:
 					m[colName] = string(v)
 				default:
-					return nil, errors.New("unknownn type")
+					return nil, errors.New("unknown type")
 				}
 
 			default:
 				m[colName] = *val
 			}
 		}
+
+		/* map uid => id
+		if uid, ok := m["uid"]; ok {
+			m["id"] = uid
+			delete(m, "uid")
+		}
+		*/
 
 		item, _ := goflatten.Unflatten(m)
 		items = append(items, item)
@@ -768,4 +775,8 @@ func (db *JSONLite) Schema(id string) (*jsonschema.RootSchema, error) {
 	}
 
 	return nil, errSchemaNotFound
+}
+
+func (db *JSONLite) Schemas() []*jsonschema.RootSchema {
+	return db.schemas.values()
 }

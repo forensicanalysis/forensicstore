@@ -25,16 +25,17 @@ package goforensicstore
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
-
 	"github.com/fatih/structs"
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
+	"path"
+	"reflect"
+	"strings"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore/assets"
 	"github.com/forensicanalysis/forensicstore/gojsonlite"
 	"github.com/forensicanalysis/forensicstore/gostore"
+	"github.com/forensicanalysis/stixgo"
 )
 
 //go:generate resources -declare -var=FS -package assets -output assets/assets.go ../pyforensicstore/schemas/*
@@ -54,6 +55,22 @@ func New(store gostore.Store) (*ForensicStore, error) {
 	return &ForensicStore{store}, nil
 }
 
+func walkJSON(elem jsonschema.JSONPather, fn func(elem jsonschema.JSONPather) error) error {
+	if err := fn(elem); err != nil {
+		return err
+	}
+
+	if con, ok := elem.(jsonschema.JSONContainer); ok {
+		for _, ch := range con.JSONChildren() {
+			if err := walkJSON(ch, fn); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // NewJSONLite creates or opens a forensicstore from an JSONLite database.
 func NewJSONLite(remoteURL string) (*ForensicStore, error) {
 	store, err := gojsonlite.New(remoteURL)
@@ -61,15 +78,49 @@ func NewJSONLite(remoteURL string) (*ForensicStore, error) {
 		return nil, err
 	}
 
-	for name, content := range assets.FS.Files {
+	// unmarshal schemas
+	for name, content := range stixgo.FS {
 		schema := &jsonschema.RootSchema{}
 		if err := json.Unmarshal(content, schema); err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
 		}
 
-		err = store.SetSchema(schema.ID, schema)
+		err = store.SetSchema(schema.Title, schema)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	// replace refs
+	for _, schema := range store.Schemas() {
+		/*
+			fmt.Println(name, schema.Title)
+			if schema.Ref != "" {
+
+				schema.Ref = "jsonlite:" + path.Base(schema.Ref)
+			}
+		*/
+		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
+			if sch, ok := elem.(*jsonschema.Schema); ok {
+				if sch.Ref != "" && sch.Ref[0] != '#' {
+					// fmt.Printf("'%s'-'%s'\n", sch.Ref, strings.TrimSuffix(path.Base(sch.Ref), ".json"))
+					sch.Ref = "jsonlite:" + strings.TrimSuffix(path.Base(sch.Ref), ".json")
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		jsonschema.DefaultSchemaPool["jsonlite:"+schema.Title] = &schema.Schema // TODO fill cache only once
+	}
+
+	// fetch references
+	for _, schema := range store.Schemas() {
+		err = schema.FetchRemoteReferences()
+		if err != nil {
+			return nil, errors.Wrap(err, "could not FetchRemoteReferences")
 		}
 	}
 

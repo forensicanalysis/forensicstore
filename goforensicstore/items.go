@@ -22,11 +22,13 @@
 package goforensicstore
 
 import (
+	"github.com/google/uuid"
 	"log"
 )
 
-// File implements a STIX 2.0 File Object
+// File implements a STIX 2.1 File Object
 type File struct {
+	ID         string                 `json:"id"`
 	Artifact   string                 `json:"artifact,omitempty"`
 	Type       string                 `json:"type"`
 	Hashes     map[string]interface{} `json:"hashes,omitempty"`
@@ -41,8 +43,20 @@ type File struct {
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 }
 
-// Directory implements a STIX 2.0 Directory Object
+func NewFile() *File {
+	return &File{ID: "file--" + uuid.New().String(), Type: "file"}
+}
+
+// AddError adds an error string to a File and returns this File.
+func (i *File) AddError(err string) *File {
+	log.Print(err)
+	i.Errors = append(i.Errors, err)
+	return i
+}
+
+// Directory implements a STIX 2.1 Directory Object
 type Directory struct {
+	ID       string        `json:"id"`
 	Artifact string        `json:"artifact,omitempty"`
 	Type     string        `json:"type"`
 	Path     string        `json:"path"`
@@ -52,7 +66,18 @@ type Directory struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
-// RegistryValue implements a STIX 2.0 Windows™ Registry Value Type
+func NewDirectory() *Directory {
+	return &Directory{ID: "directory--" + uuid.New().String(), Type: "directory"}
+}
+
+// AddError adds an error string to a Directory and returns this Directory.
+func (i *Directory) AddError(err string) *Directory {
+	log.Print(err)
+	i.Errors = append(i.Errors, err)
+	return i
+}
+
+// RegistryValue implements a STIX 2.1 Windows™ Registry Value Type
 type RegistryValue struct {
 	Name     string        `json:"name"`
 	Data     string        `json:"data,omitempty"`
@@ -60,8 +85,20 @@ type RegistryValue struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
-// RegistryKey implements a STIX 2.0 Windows™ Registry Key Object
+func NewRegistryValue() *RegistryValue {
+	return &RegistryValue{}
+}
+
+// AddError adds an error string to a RegistryValue and returns this RegistryValue.
+func (i *RegistryValue) AddError(err string) *RegistryValue {
+	log.Print(err)
+	i.Errors = append(i.Errors, err)
+	return i
+}
+
+// RegistryKey implements a STIX 2.1 Windows™ Registry Key Object
 type RegistryKey struct {
+	ID       string          `json:"id"`
 	Artifact string          `json:"artifact,omitempty"`
 	Type     string          `json:"type"`
 	Key      string          `json:"key"`
@@ -70,8 +107,20 @@ type RegistryKey struct {
 	Errors   []interface{}   `json:"errors,omitempty"`
 }
 
-// Process implements a STIX 2.0 Process Object
+func NewRegistryKey() *RegistryKey {
+	return &RegistryKey{ID: "windows-registry-key--" + uuid.New().String(), Type: "windows-registry-key"}
+}
+
+// AddError adds an error string to a RegistryKey and returns this RegistryKey.
+func (i *RegistryKey) AddError(err string) *RegistryKey {
+	log.Print(err)
+	i.Errors = append(i.Errors, err)
+	return i
+}
+
+// Process implements a STIX 2.1 Process Object
 type Process struct {
+	ID          string        `json:"id"`
 	Artifact    string        `json:"artifact,omitempty"`
 	Type        string        `json:"type"`
 	Name        string        `json:"name,omitempty"`
@@ -86,32 +135,8 @@ type Process struct {
 	Errors      []interface{} `json:"errors,omitempty"`
 }
 
-// AddError adds an error string to a File and returns this File.
-func (i *File) AddError(err string) *File {
-	log.Print(err)
-	i.Errors = append(i.Errors, err)
-	return i
-}
-
-// AddError adds an error string to a Directory and returns this Directory.
-func (i *Directory) AddError(err string) *Directory {
-	log.Print(err)
-	i.Errors = append(i.Errors, err)
-	return i
-}
-
-// AddError adds an error string to a RegistryValue and returns this RegistryValue.
-func (i *RegistryValue) AddError(err string) *RegistryValue {
-	log.Print(err)
-	i.Errors = append(i.Errors, err)
-	return i
-}
-
-// AddError adds an error string to a RegistryKey and returns this RegistryKey.
-func (i *RegistryKey) AddError(err string) *RegistryKey {
-	log.Print(err)
-	i.Errors = append(i.Errors, err)
-	return i
+func NewProcess() *Process {
+	return &Process{ID: "process--" + uuid.New().String(), Type: "process"}
 }
 
 // AddError adds an error string to a Process and returns this Process.

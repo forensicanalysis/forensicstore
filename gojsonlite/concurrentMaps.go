@@ -89,3 +89,12 @@ func (rm *schemaMap) keys() (keys []string) {
 	rm.Unlock()
 	return keys
 }
+
+func (rm *schemaMap) values() (values []*jsonschema.RootSchema) {
+	rm.Lock()
+	for _ , value := range rm.internal {
+		values = append(values, value)
+	}
+	rm.Unlock()
+	return values
+}

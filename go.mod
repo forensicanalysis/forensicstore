@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/fatih/structs v1.1.0
-	github.com/forensicanalysis/fslib v0.12.1
+	github.com/forensicanalysis/stixgo v0.1.0
 	github.com/google/uuid v1.1.1
 	github.com/iancoleman/strcase v0.0.0-20190422225806-e506e3ef7365
 	github.com/imdario/mergo v0.3.7
