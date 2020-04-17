@@ -23,6 +23,7 @@ package goforensicstore
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -126,6 +127,102 @@ func TestProcess_AddError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.i.AddError(tt.args.err); !reflect.DeepEqual(got, &tt.want) {
 				t.Errorf("Process.AddError() = %v, want %v", got, &tt.want)
+			}
+		})
+	}
+}
+
+func TestNewDirectory(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"new Directory"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewDirectory()
+
+			if got.Type != "directory" {
+				t.Errorf("Directory.Type must be 'directory'")
+			}
+
+			if !strings.HasPrefix(got.ID, "directory--") {
+				t.Errorf("Directory.ID must start with 'directory--'")
+			}
+		})
+	}
+}
+func TestNewFile(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"new File"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewFile()
+
+			if got.Type != "file" {
+				t.Errorf("File.Type must be 'file'")
+			}
+
+			if !strings.HasPrefix(got.ID, "file--") {
+				t.Errorf("File.ID must start with 'file--'")
+			}
+		})
+	}
+}
+
+func TestNewRegistryKey(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"new RegistryKey"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewRegistryKey()
+
+			if got.Type != "windows-registry-key" {
+				t.Errorf("RegistryKey.Type must be 'windows-registry-key'")
+			}
+
+			if !strings.HasPrefix(got.ID, "windows-registry-key--") {
+				t.Errorf("RegistryKey.ID must start with 'windows-registry-key--'")
+			}
+		})
+	}
+}
+
+func TestNewRegistryValue(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"new RegistryValue"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_ = NewRegistryValue()
+		})
+	}
+}
+
+func TestNewProcess(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{"new Process"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewProcess()
+
+			if got.Type != "process" {
+				t.Errorf("Process.Type must be 'process'")
+			}
+
+			if !strings.HasPrefix(got.ID, "process--") {
+				t.Errorf("Process.ID must start with 'process--'")
 			}
 		})
 	}
