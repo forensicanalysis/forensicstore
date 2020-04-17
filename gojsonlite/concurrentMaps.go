@@ -81,11 +81,11 @@ func (rm *schemaMap) store(key string, value *jsonschema.RootSchema) {
 	rm.Unlock()
 }
 
-func (rm *schemaMap) keys() (keys []string) {
+func (rm *schemaMap) values() (values []*jsonschema.RootSchema) {
 	rm.Lock()
-	for key := range rm.internal {
-		keys = append(keys, key)
+	for _, value := range rm.internal {
+		values = append(values, value)
 	}
 	rm.Unlock()
-	return keys
+	return values
 }
