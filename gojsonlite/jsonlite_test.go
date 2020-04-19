@@ -172,6 +172,15 @@ func TestJSONLite_Get(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
+	nullItem := Item{
+		"command_line": "false",
+		"created":      "2016-01-20T14:11:25.550Z",
+		"cwd":          "/root/",
+		"name":         "false",
+		"type":         "process",
+		"uid":          "process--920d7c41-0fef-4cf8-bce2-ead120f6b507",
+	}
+
 	type fields struct {
 		url string
 	}
@@ -186,13 +195,12 @@ func TestJSONLite_Get(t *testing.T) {
 		wantErr  bool
 	}{
 		{"Get item", fields{testDir + ExampleStore}, args{ProcessItemId}, ProcessItem, false},
+		{"Get NULL item", fields{testDir + ExampleStore}, args{"process--920d7c41-0fef-4cf8-bce2-ead120f6b507"}, nullItem, false},
 		{"Get non existing", fields{testDir + ExampleStore}, args{"process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log.Print("get2")
 			db, err := New(tt.fields.url)
-			log.Print("get3")
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -344,7 +352,7 @@ func TestJSONLite_All(t *testing.T) {
 		wantItems int
 		wantErr   bool
 	}{
-		{"All", fields{testDir + ExampleStore}, 7, false},
+		{"All", fields{testDir + ExampleStore}, 8, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
