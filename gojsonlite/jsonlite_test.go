@@ -40,7 +40,7 @@ var (
 	ExampleStore  = "example1.forensicstore"
 	ProcessItemId = "process--920d7c41-0fef-4cf8-bce2-ead120f6b506"
 	ProcessItem   = Item{
-		"uid":          ProcessItemId,
+		"id":           ProcessItemId,
 		"artifact":     "IPTablesRules",
 		"type":         "process",
 		"name":         "iptables",
@@ -178,7 +178,7 @@ func TestJSONLite_Get(t *testing.T) {
 		"cwd":          "/root/",
 		"name":         "false",
 		"type":         "process",
-		"uid":          "process--920d7c41-0fef-4cf8-bce2-ead120f6b507",
+		"id":           "process--920d7c41-0fef-4cf8-bce2-ead120f6b507",
 	}
 
 	type fields struct {

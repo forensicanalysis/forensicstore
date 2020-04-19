@@ -155,12 +155,12 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 	}
 
 	// map id => uid
-	if uid, ok := firstItem["id"]; ok {
-		firstItem["uid"] = fmt.Sprint(uid)
-	} else if uid, ok := firstItem["uid"]; ok {
-		firstItem["uid"] = fmt.Sprint(uid)
+	if uid, ok := firstItem["id"]; ok && uid != "" {
+		firstItem["id"] = fmt.Sprint(uid)
+	} else if uid, ok := firstItem["uid"]; ok && uid != "" {
+		firstItem["id"] = fmt.Sprint(uid)
 	} else {
-		firstItem["uid"] = firstItem[discriminator].(string) + "--" + uuid.New().String()
+		firstItem["id"] = firstItem[discriminator].(string) + "--" + uuid.New().String()
 	}
 
 	flatItem, err := goflatten.Flatten(firstItem)
@@ -168,13 +168,17 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 		return nil, errors.Wrap(err, "could not flatten item")
 	}
 
-	valErr, err := db.validateItemSchema(firstItem)
+	valErr, err := db.validateItemSchema(flatItem)
 	if err != nil {
 		return nil, errors.Wrap(err, "validation failed")
 	}
 	if len(valErr) > 0 {
-		return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+		return nil, fmt.Errorf("first item could not be validated [%s]", strings.Join(valErr, ","))
 	}
+
+	flatItem["uid"] = flatItem["id"]
+	delete(flatItem, "id")
+
 	if err := db.ensureTable(flatItem, firstItem); err != nil {
 		return nil, errors.Wrap(err, "could not ensure table")
 	}
@@ -190,12 +194,13 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 	var columnValues []interface{}
 	var uids []string
 	for _, item := range items {
-		valErr, err := db.validateItemSchema(item)
-		if err != nil {
-			return nil, errors.Wrap(err, "validation failed")
-		}
-		if len(valErr) > 0 {
-			return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+		// map id => uid
+		if uid, ok := item["id"]; ok {
+			item["id"] = fmt.Sprint(uid)
+		} else if uid, ok := item["uid"]; ok {
+			item["id"] = fmt.Sprint(uid)
+		} else {
+			item["id"] = item[discriminator].(string) + "--" + uuid.New().String()
 		}
 
 		flatItem, err := goflatten.Flatten(item)
@@ -203,14 +208,16 @@ func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocy
 			return nil, errors.Wrap(err, "could not flatten item")
 		}
 
-		// map id => uid
-		if uid, ok := flatItem["id"]; ok {
-			flatItem["uid"] = fmt.Sprint(uid)
-		} else if uid, ok := flatItem["uid"]; ok {
-			flatItem["uid"] = fmt.Sprint(uid)
-		} else {
-			flatItem["uid"] = flatItem[discriminator].(string) + "--" + uuid.New().String()
+		valErr, err := db.validateItemSchema(flatItem)
+		if err != nil {
+			return nil, errors.Wrap(err, "validation failed")
 		}
+		if len(valErr) > 0 {
+			return nil, fmt.Errorf("item could not be validated [%s]", strings.Join(valErr, ","))
+		}
+
+		flatItem["uid"] = flatItem["id"]
+		delete(flatItem, "id")
 
 		for _, name := range columnNames {
 			columnValues = append(columnValues, flatItem[name])
@@ -622,12 +629,11 @@ func (db *JSONLite) rowsToItems(rows *sql.Rows) (items []Item, err error) {
 			}
 		}
 
-		/* map uid => id
+		// map uid => id
 		if uid, ok := m["uid"]; ok {
 			m["id"] = uid
 			delete(m, "uid")
 		}
-		*/
 
 		item, _ := goflatten.Unflatten(m)
 		items = append(items, item)

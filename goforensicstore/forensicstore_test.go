@@ -22,11 +22,15 @@
 package goforensicstore
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/fatih/structs"
+	"github.com/forensicanalysis/forensicstore/gostore"
 )
 
 var exampleStore = "/example1.forensicstore"
@@ -172,6 +176,75 @@ func Test_isEmptyValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isEmptyValue(tt.args.v); got != tt.want {
 				t.Errorf("isEmptyValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInsert(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var itemA map[string]interface{}
+	itemA = gostore.Item{
+		"accessed": "2020-01-30T08:44:59.558Z",
+		"artifact": "WindowsDeviceSetup",
+		"attributes": map[string]interface{}{
+			"accessed": "2020-01-30T08:44:59.558Z",
+			"changed":  "2019-08-28T11:34:06.643Z",
+			"created":  "2019-03-19T10:49:31.871Z",
+			"modified": "2019-08-28T11:34:06.643Z",
+		},
+		"created":     "2019-03-19T10:49:31.871Z",
+		"export_path": "WindowsDeviceSetup/setupapi.dev.log",
+		"hashes": map[string]interface{}{
+			"MD5":   "6a2a8628bc16039ae82e0df591886115",
+			"SHA-1": "0672fc8a0eae6996b46e25e2cf7867a0f414a9e7",
+		},
+		"id":       "file--72901201-8558-403a-80f2-9c0645c519f0",
+		"modified": "2019-08-28T11:34:06.643Z",
+		"name":     "setupapi.dev.log",
+		"origin":   map[string]interface{}{"path": "/C/Windows/inf/setupapi.dev.log"},
+		"size":     float64(340854),
+		"type":     "file",
+	}
+
+	fileB := NewFile()
+	fileB.Name = "foo.txt"
+	fileB.Size = 340854
+
+	itemB := structs.Map(fileB)
+	itemB = lower(itemB).(map[string]interface{})
+
+	fmt.Printf("%#v %s\n", itemA, reflect.TypeOf(itemA["size"]))
+	fmt.Printf("%#v %s\n", itemB, reflect.TypeOf(itemB["size"]))
+
+	type args struct {
+		remoteURL string
+		item      gostore.Item // *File //
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"Insert valid item A", args{tempDir, itemA}, false},
+		{"Insert valid item B", args{tempDir, itemB}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, err := NewJSONLite(tt.args.remoteURL)
+			defer os.Remove(tt.args.remoteURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewJSONLite() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			_, err = store.Insert(tt.args.item)
+			if err != nil {
+				t.Fatal(err)
 			}
 		})
 	}

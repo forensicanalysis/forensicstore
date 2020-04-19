@@ -53,6 +53,7 @@ type ForensicStore struct {
 
 // New creates a new ForensicStore based on the passed gostore.Store.
 func New(store gostore.Store) (*ForensicStore, error) {
+	// TODO: add schemas
 	return &ForensicStore{store}, nil
 }
 
