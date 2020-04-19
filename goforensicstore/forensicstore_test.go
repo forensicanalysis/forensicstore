@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	"github.com/fatih/structs"
+
 	"github.com/forensicanalysis/forensicstore/gostore"
 )
 
