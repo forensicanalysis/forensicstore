@@ -82,7 +82,7 @@ teardown() {
     forensicstore item all test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
-    [ "$output" = '7' ]
+    [ "$output" = '8' ]
 }
 
 @test "jsonlite insert" {
@@ -94,11 +94,11 @@ teardown() {
     run forensicstore item all $TESTDIR/example1.forensicstore
     echo $output
 
-    # 8 items should be in the store now
+    # 9 items should be in the store now
     forensicstore item all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted item with id
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -117,11 +117,11 @@ teardown() {
     run forensicstore item insert '{"type": "foo", "foo": "bar", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
-    # 8 items should be in the store now
+    # 10 items should be in the store now
     forensicstore item all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '10' ]
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -147,11 +147,11 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    # 8 items should be in the store now
+    # 9 items should be in the store now
     forensicstore item all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -168,11 +168,11 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    # 8 items should be in the store now
+    # 9 items should be in the store now
     forensicstore item all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -189,11 +189,11 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    # 8 items should be in the store now
+    # 9 items should be in the store now
     forensicstore item all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted item with id 10
     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
