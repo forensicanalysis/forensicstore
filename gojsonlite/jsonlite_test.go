@@ -123,8 +123,8 @@ func TestNew(t *testing.T) {
 
 func TestJSONLite_Insert(t *testing.T) {
 	foo := Item{"name": "foo", "type": "fo", "int": 0}
-	bar := Item{"name": "bar", "type": "ba", "int": 2}
-	baz := Item{"name": "baz", "type": "ba", "float": 0.1}
+	bar := Item{"id": "ba--920d7c41-0fef-4cf8-bce2-ead120f6b706", "name": "bar", "type": "ba", "int": 2}
+	baz := Item{"uid": "ba--920d7c41-0fef-4cf8-bce2-ead120f6b806", "name": "baz", "type": "ba", "float": 0.1}
 	bat := Item{"name": "bat", "type": "ba", "list": []string{}}
 	bau := Item{"name": "bau", "type": "ba", "list": nil}
 
@@ -594,6 +594,7 @@ func Test_getSQLDataType(t *testing.T) {
 
 func TestJSONLite_Validate(t *testing.T) {
 	testDir := setup(t)
+	defer teardown(t)
 
 	type fields struct {
 		url string
@@ -629,6 +630,7 @@ func TestJSONLite_Validate(t *testing.T) {
 
 func TestJSONLite_validateItemSchema(t *testing.T) {
 	testDir := setup(t)
+	defer teardown(t)
 
 	content := []byte(`{
 	"$id": "file",
@@ -690,6 +692,7 @@ func TestJSONLite_validateItemSchema(t *testing.T) {
 
 func TestJSONLite_StoreFile(t *testing.T) {
 	testDir := setup(t)
+	defer teardown(t)
 
 	type fields struct {
 		url string
@@ -744,6 +747,34 @@ func TestJSONLite_StoreFile(t *testing.T) {
 			}
 			if !reflect.DeepEqual(b, tt.wantData) {
 				t.Errorf("JSONLite.StoreFile() gotFile = %v, want %v", b, tt.wantData)
+			}
+		})
+	}
+}
+
+func TestJSONLite_Schemas(t *testing.T) {
+	testDir := setup(t)
+	defer teardown(t)
+
+	type fields struct {
+		url string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   []*jsonschema.RootSchema
+	}{
+		{"no schemas", fields{testDir + ExampleStore}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, err := New(tt.fields.url)
+			if err != nil || db == nil {
+				t.Fatalf("Database could not be created %v\n", err)
+			}
+
+			if got := db.Schemas(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("JSONLite.Schemas() = %v, want %v", got, tt.want)
 			}
 		})
 	}
