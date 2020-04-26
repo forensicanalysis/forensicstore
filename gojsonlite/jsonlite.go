@@ -144,7 +144,7 @@ func (db *JSONLite) Insert(item Item) (string, error) {
 }
 
 // InsertBatch adds a set of items. All items must have the same fields.
-func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocyclo
+func (db *JSONLite) InsertBatch(items []Item) ([]string, error) { // nolint:gocyclo,funlen
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -401,7 +401,7 @@ func (db *JSONLite) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) { // nolint:gocyclo
+func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles []string, err error) { // nolint:gocyclo,gocognit,funlen,lll
 	flaws = []string{}
 	itemExpectedFiles = []string{}
 
@@ -417,67 +417,77 @@ func (db *JSONLite) validateItem(item Item) (flaws []string, itemExpectedFiles [
 
 	for field := range item {
 		if strings.HasSuffix(field, "_path") {
-			exportPath := item[field].(string)
-
-			if strings.Contains(exportPath, "..") {
-				flaws = append(flaws, fmt.Sprintf("'..' in %s", exportPath))
-				continue
-			}
-
-			itemExpectedFiles = append(itemExpectedFiles, "/"+exportPath)
-
-			exits, err := afero.Exists(db, filepath.Join(db.storeFolder, exportPath))
+			pathFlaws, pathItemExpectedFiles, err := db.handlePathField(item, field)
 			if err != nil {
 				return nil, nil, err
 			}
-			if !exits {
-				continue
-			}
-
-			if size, ok := item["size"]; ok {
-				fi, err := db.Stat(filepath.Join(db.storeFolder, exportPath))
-				if err != nil {
-					return nil, nil, err
-				}
-				if int64(size.(float64)) != fi.Size() {
-					flaws = append(flaws, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), size))
-				}
-			}
-
-			if hashes, ok := item["hashes"]; ok {
-				for algorithm, value := range hashes.(map[string]interface{}) {
-					var h hash.Hash
-					switch algorithm {
-					case "MD5":
-						h = md5.New() // #nosec
-					case "SHA1":
-						h = sha1.New() // #nosec
-					case "SHA-1":
-						h = sha1.New() // #nosec
-					default:
-						flaws = append(flaws, fmt.Sprintf("unsupported hash %s for %s", algorithm, exportPath))
-						continue
-					}
-
-					f, err := db.Open(filepath.Join(db.storeFolder, exportPath))
-					if err != nil {
-						return nil, nil, err
-					}
-
-					_, err = io.Copy(h, f)
-					f.Close() // nolint:errcheck
-					if err != nil {
-						return nil, nil, err
-					}
-
-					if fmt.Sprintf("%x", h.Sum(nil)) != value {
-						flaws = append(flaws, fmt.Sprintf("hashvalue mismatch %s for %s", algorithm, exportPath))
-					}
-				}
-			}
+			flaws = append(flaws, pathFlaws...)
+			itemExpectedFiles = append(itemExpectedFiles, pathItemExpectedFiles...)
 		}
 	}
 
+	return flaws, itemExpectedFiles, nil
+}
+
+func (db *JSONLite) handlePathField(item Item, field string) (flaws, itemExpectedFiles []string, err error) { //nolint:gocyclo,lll
+	exportPath := item[field].(string)
+
+	if strings.Contains(exportPath, "..") {
+		flaws = append(flaws, fmt.Sprintf("'..' in %s", exportPath))
+		return flaws, itemExpectedFiles, nil
+	}
+
+	itemExpectedFiles = append(itemExpectedFiles, "/"+exportPath)
+
+	exits, err := afero.Exists(db, filepath.Join(db.storeFolder, exportPath))
+	if err != nil {
+		return nil, nil, err
+	}
+	if !exits {
+		return flaws, itemExpectedFiles, nil
+	}
+
+	if size, ok := item["size"]; ok {
+		fi, err := db.Stat(filepath.Join(db.storeFolder, exportPath))
+		if err != nil {
+			return nil, nil, err
+		}
+		if int64(size.(float64)) != fi.Size() {
+			flaws = append(flaws, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), size))
+		}
+	}
+
+	if hashes, ok := item["hashes"]; ok {
+		for algorithm, value := range hashes.(map[string]interface{}) {
+			var h hash.Hash
+			switch algorithm {
+			case "MD5":
+				h = md5.New() // #nosec
+			case "SHA1":
+				h = sha1.New() // #nosec
+			case "SHA-1":
+				h = sha1.New() // #nosec
+			default:
+				flaws = append(flaws, fmt.Sprintf("unsupported hash %s for %s", algorithm, exportPath))
+				return flaws, itemExpectedFiles, nil
+			}
+
+			f, err := db.Open(filepath.Join(db.storeFolder, exportPath))
+			if err != nil {
+				return nil, nil, err
+			}
+
+			_, err = io.Copy(h, f)
+			f.Close() // nolint:errcheck
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if fmt.Sprintf("%x", h.Sum(nil)) != value {
+				flaws = append(flaws, fmt.Sprintf("hashvalue mismatch %s for %s", algorithm, exportPath))
+			}
+		}
+	}
 	return flaws, itemExpectedFiles, nil
 }
 
@@ -572,12 +582,16 @@ func (db *JSONLite) All() (items []Item, err error) {
 		}
 		items = append(items, selectItems...)
 	}
-	return
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	return items, nil
 }
 
 /* ################################
 #   Intern
 ################################ */
+
 func (db *JSONLite) rowsToItems(rows *sql.Rows) (items []Item, err error) {
 	defer rows.Close() //good habit to closes
 	cols, _ := rows.Columns()
@@ -687,7 +701,13 @@ func (db *JSONLite) getTables() (map[string]map[string]string, error) {
 			}
 			tables[name][c.name] = c.ctype
 		}
+		if columnRows.Err() != nil {
+			return nil, rows.Err()
+		}
 		columnRows.Close()
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
 	}
 	return tables, nil
 }
@@ -698,7 +718,7 @@ func (db *JSONLite) ensureTable(flatItem Item, item Item) error {
 	db.sqlMutex.Lock()
 	defer db.sqlMutex.Unlock()
 
-	if table, ok := db.tables.load(itemType); !ok {
+	if table, ok := db.tables.load(itemType); !ok { //nolint:nestif
 		if err := db.createTable(flatItem); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
