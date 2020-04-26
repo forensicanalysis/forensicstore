@@ -32,7 +32,7 @@
 //     - Items are valid STIX 2.0 Observable Objects where applicable.
 //     - Items must not have dots (".") in their json keys.
 //     - Files stored in the forensicstore are referenced by item attributes ending in _path, e.g. export_path, stdout_path and wmi_path.
-//     - Any item stored in the forensicstore can have an errors attribute that contains errors that are related to retrieval or processing of this item.
+//     - Any item stored in the forensicstore can have an errors attribute that contains errors that are related to retrival or processing of this item.
 //
 // Structure
 //
