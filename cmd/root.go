@@ -32,7 +32,7 @@ import (
 	"github.com/forensicanalysis/forensicstore/goforensicstore"
 )
 
-// Create is the forensicstore create commandline subcommand
+// Create is the forensicstore create commandline subcommand.
 func Create() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create",
@@ -48,7 +48,7 @@ func Create() *cobra.Command {
 	}
 }
 
-// Item is the forensicstore item commandline subcommand
+// Item is the forensicstore item commandline subcommand.
 func Item() *cobra.Command {
 	itemCommand := &cobra.Command{
 		Use:   "item",
@@ -60,7 +60,7 @@ func Item() *cobra.Command {
 	return itemCommand
 }
 
-// Validate is the forensicstore validate commandline subcommand
+// Validate is the forensicstore validate commandline subcommand.
 func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{

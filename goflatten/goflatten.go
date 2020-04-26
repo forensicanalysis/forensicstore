@@ -38,7 +38,7 @@ import (
 // Flatten the map, it returns a map one level deep
 // regardless of how nested the original map was.
 // By default, the flatten has Delimiter = ".", and
-// no limitation of MaxDepth
+// no limitation of MaxDepth.
 func Flatten(nested map[string]interface{}) (flatmap map[string]interface{}, err error) {
 	return flatten("", nested)
 }
@@ -91,7 +91,7 @@ func flatten(prefix string, nested interface{}) (flatmap map[string]interface{},
 // example:
 // to = {"hi": "there"}
 // from = {"foo": "bar"}
-// then, to = {"hi": "there", "foo": "bar"}
+// then, to = {"hi": "there", "foo": "bar"}.
 func update(to map[string]interface{}, from map[string]interface{}) {
 	for kt, vt := range from {
 		to[kt] = vt
@@ -99,7 +99,7 @@ func update(to map[string]interface{}, from map[string]interface{}) {
 }
 
 // Unflatten the map, it returns a nested map of a map
-// By default, the flatten has Delimiter = "."
+// By default, the flatten has Delimiter = ".".
 func Unflatten(flat map[string]interface{}) (nested map[string]interface{}, err error) {
 	nested = make(map[string]interface{})
 
