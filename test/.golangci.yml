@@ -54,7 +54,7 @@ linters:
     - govet # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
     - ineffassign # Detects when assignments to existing variables are not used
     - interfacer # Linter that suggests narrower interface types
-    - lll # Reports long lines
+    # - lll # Reports long lines
     - maligned # Tool to detect Go structs that would take less memory if their fields were sorted
     - misspell # Finds commonly misspelled English words in comments
     - nakedret # Finds naked returns in functions greater than a specified function length
