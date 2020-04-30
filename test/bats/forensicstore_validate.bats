@@ -31,15 +31,15 @@ teardown() {
   # echo $TESTDIR
 }
 
-@test "forensicstore validate insert invalid item" {
+@test "forensicstore validate insert invalid element" {
     run forensicstore create $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
-    run forensicstore item insert '{"type": "file", "foo": "bar"}' $TESTDIR/tmp.forensicstore
+    run forensicstore element insert '{"type": "file", "foo": "bar"}' $TESTDIR/tmp.forensicstore
     echo $output
     skip "TODO: Fix error output"
-    [ "$output" = "foo: invalid item" ]
+    [ "$output" = "foo: invalid element" ]
 }
 
 @test "forensicstore validate parent file" {
@@ -47,7 +47,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    run forensicstore item insert '{"type": "foo", "foo_path": "../bar"}' $TESTDIR/tmp.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo_path": "../bar"}' $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -70,7 +70,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    run forensicstore item insert '{"type": "foo", "foo_path": "bar"}' $TESTDIR/tmp.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo_path": "bar"}' $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -112,7 +112,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    run forensicstore item insert '{"type": "foo", "foo_path": "bar", "size": 2}' $TESTDIR/tmp.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "size": 2}' $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -142,7 +142,7 @@ teardown() {
     echo $output
     [ "$status" -eq 0 ]
 
-    run forensicstore item insert '{"type": "foo", "foo_path": "bar", "hashes": {"MD5": "165565004ed5a3a4310615b7f68a9da9"}}' $TESTDIR/tmp.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "hashes": {"MD5": "165565004ed5a3a4310615b7f68a9da9"}}' $TESTDIR/tmp.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 

@@ -1,25 +1,27 @@
-// Copyright (c) 2019 Siemens AG
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy of
-// this software and associated documentation files (the "Software"), to deal in
-// the Software without restriction, including without limitation the rights to
-// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-// the Software, and to permit persons to whom the Software is furnished to do so,
-// subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-// IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-// Author(s): Jonas Plum
+/*
+ * Copyright (c) 2020 Siemens AG
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Author(s): Jonas Plum
+ */
 
-package gojsonlite
+package forensicstore
 
 import (
 	"encoding/json"
@@ -37,10 +39,9 @@ import (
 )
 
 var (
-	ExampleStore  = "example1.forensicstore"
-	ProcessItemId = "process--920d7c41-0fef-4cf8-bce2-ead120f6b506"
-	ProcessItem   = Item{
-		"uid":          ProcessItemId,
+	ProcessElementId = "process--920d7c41-0fef-4cf8-bce2-ead120f6b506"
+	ProcessElement   = Element{
+		"uid":          ProcessElementId,
 		"artifact":     "IPTablesRules",
 		"type":         "process",
 		"name":         "iptables",
@@ -54,32 +55,25 @@ var (
 	}
 )
 
+var exampleStore = "/example1.forensicstore"
+
 func setup(t *testing.T) string {
 	dir, err := ioutil.TempDir("", t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := filepath.Join("..", "test", "forensicstore", ExampleStore)
-	dst := filepath.Join(dir, ExampleStore)
-	for _, name := range []string{"item.db", filepath.Join("WindowsAMCacheHveFile", "Amcache.hve"), filepath.Join("IPTablesRules", "stderr"), filepath.Join("IPTablesRules", "stdout"), filepath.Join("WMILogicalDisks", "stdout"), filepath.Join("WMILogicalDisks", "wmi"), filepath.Join("WMILogicalDisks", "stderr")} {
-		CopyFile(t, filepath.Join(src, name), filepath.Join(dst, name))
+	input, err := ioutil.ReadFile("../test/forensicstore/example1.forensicstore/element.db")
+	if err != nil {
+		t.Fatal(err)
 	}
-
+	err = os.MkdirAll(dir+exampleStore, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(dir+exampleStore+"/element.db", input, 0644); err != nil {
+		t.Fatal(err)
+	}
 	return dir + string(filepath.Separator)
-}
-
-func CopyFile(t *testing.T, src, dst string) {
-	input, err := ioutil.ReadFile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.MkdirAll(filepath.Dir(dst), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(dst, input, 0644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func teardown(t *testing.T) {
@@ -96,37 +90,40 @@ func teardown(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
+	tempDir, err := ioutil.TempDir("", t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	type args struct {
-		remoteUrl string
+		remoteURL string
 	}
 	tests := []struct {
 		name    string
 		args    args
 		wantErr bool
 	}{
-		{"Create store", args{testDir + "new.jsonlite"}, false},
+		{"NewJSONLite", args{tempDir}, false},
+		{"Wrong URL", args{"foo\x00bar"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := New(tt.args.remoteUrl)
+			_, err := New(tt.args.remoteURL)
+			defer os.Remove(tt.args.remoteURL)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("NewJSONLite() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			os.Remove(tt.args.remoteUrl)
 		})
 	}
 }
 
-func TestJSONLite_Insert(t *testing.T) {
-	foo := Item{"name": "foo", "type": "fo", "int": 0}
-	bar := Item{"name": "bar", "type": "ba", "int": 2}
-	baz := Item{"name": "baz", "type": "ba", "float": 0.1}
-	bat := Item{"name": "bat", "type": "ba", "list": []string{}}
-	bau := Item{"name": "bau", "type": "ba", "list": nil}
+func TestStore_Insert(t *testing.T) {
+	foo := Element{"name": "foo", "type": "fo", "int": 0}
+	bar := Element{"name": "bar", "type": "ba", "int": 2}
+	baz := Element{"name": "baz", "type": "ba", "float": 0.1}
+	bat := Element{"name": "bat", "type": "ba", "list": []string{}}
+	bau := Element{"name": "bau", "type": "ba", "list": nil}
 
 	testDir := setup(t)
 	defer teardown(t)
@@ -135,7 +132,7 @@ func TestJSONLite_Insert(t *testing.T) {
 		url string
 	}
 	type args struct {
-		item Item
+		element Element
 	}
 	tests := []struct {
 		name    string
@@ -144,11 +141,11 @@ func TestJSONLite_Insert(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{"Insert First", fields{testDir + ExampleStore}, args{foo}, "fo--", false},
-		{"Insert Second", fields{testDir + ExampleStore}, args{bar}, "ba--", false},
-		{"Insert Different Columns", fields{testDir + ExampleStore}, args{baz}, "ba--", false},
-		{"Insert Empty List", fields{testDir + ExampleStore}, args{bat}, "ba--", false},
-		{"Insert Item with nil", fields{testDir + ExampleStore}, args{bau}, "ba--", false},
+		{"Insert First", fields{testDir}, args{foo}, "fo--", false},
+		{"Insert Second", fields{testDir}, args{bar}, "ba--", false},
+		{"Insert Different Columns", fields{testDir}, args{baz}, "ba--", false},
+		{"Insert Empty List", fields{testDir}, args{bat}, "ba--", false},
+		{"Insert Element with nil", fields{testDir}, args{bau}, "ba--", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -157,17 +154,58 @@ func TestJSONLite_Insert(t *testing.T) {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
-			got, err := db.Insert(tt.args.item)
+			got, err := db.Insert(tt.args.element)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Insert() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.Insert() error = %v, wantErr %v", err, tt.wantErr)
 			} else if got[:4] != tt.want {
-				t.Errorf("JSONLite.Insert() = %v, want %v", got[:4], tt.want)
+				t.Errorf("Store.Insert() = %v, want %v", got[:4], tt.want)
 			}
 		})
 	}
 }
 
-func TestJSONLite_Get(t *testing.T) {
+func TestForensicStore_InsertStruct(t *testing.T) {
+	testDir := setup(t)
+	defer teardown(t)
+
+	myfile := NewFile()
+	myfile.Name = "test.txt"
+
+	myfile2 := struct {
+		Type string
+		Name int
+	}{"file", 1}
+
+	myfile3 := File{Type: "file"}
+
+	type args struct {
+		element interface{}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"valid", args{myfile}, false},
+		{"wrong schema", args{myfile2}, true},
+		{"empty file element", args{myfile3}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, err := New(testDir + exampleStore)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = store.InsertStruct(tt.args.element)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InsertStruct() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
+func TestStore_Get(t *testing.T) {
 	log.Print("get")
 	testDir := setup(t)
 	defer teardown(t)
@@ -179,14 +217,14 @@ func TestJSONLite_Get(t *testing.T) {
 		id string
 	}
 	tests := []struct {
-		name     string
-		fields   fields
-		args     args
-		wantItem Item
-		wantErr  bool
+		name        string
+		fields      fields
+		args        args
+		wantElement Element
+		wantErr     bool
 	}{
-		{"Get item", fields{testDir + ExampleStore}, args{ProcessItemId}, ProcessItem, false},
-		{"Get non existing", fields{testDir + ExampleStore}, args{"process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}, nil, true},
+		{"Get element", fields{testDir}, args{ProcessElementId}, ProcessElement, false},
+		{"Get non existing", fields{testDir}, args{"process--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}, nil, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -198,17 +236,17 @@ func TestJSONLite_Get(t *testing.T) {
 			}
 
 			// defer os.Remove(tt.fields.url)
-			gotItem, err := db.Get(tt.args.id)
+			gotElement, err := db.Get(tt.args.id)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.EqualValues(t, gotItem, tt.wantItem)
+			assert.EqualValues(t, gotElement, tt.wantElement)
 		})
 	}
 }
 
-func TestJSONLite_QueryJSONLite(t *testing.T) {
+func TestStore_QueryStore(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -219,13 +257,13 @@ func TestJSONLite_QueryJSONLite(t *testing.T) {
 		query string
 	}
 	tests := []struct {
-		name      string
-		fields    fields
-		args      args
-		wantItems []Item
-		wantErr   bool
+		name         string
+		fields       fields
+		args         args
+		wantElements []Element
+		wantErr      bool
 	}{
-		{"Query", fields{testDir + ExampleStore}, args{"SELECT * FROM process WHERE name=\"iptables\""}, []Item{ProcessItem}, false},
+		{"Query", fields{testDir}, args{"SELECT * FROM process WHERE name=\"iptables\""}, []Element{ProcessElement}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -235,62 +273,17 @@ func TestJSONLite_QueryJSONLite(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			gotItems, err := db.Query(tt.args.query)
+			gotElements, err := db.Query(tt.args.query)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Query() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.Query() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.EqualValues(t, gotItems, tt.wantItems)
+			assert.EqualValues(t, gotElements, tt.wantElements)
 		})
 	}
 }
 
-/*
-func TestJSONLite_Update(t *testing.T) {
-	testDir := setup(t)
-	defer teardown(t)
-
-	updatedItem := PROCESS_ITEM
-	updatedItem["name"] = "foo"
-
-	type fields struct {
-		url string
-	}
-	type args struct {
-		id          string
-		partialItem Item
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    string
-		wantErr bool
-	}{
-		{"Update", fields{testDir + EXAMPLE_STORE}, args{PROCESS_ITEM_ID, Item{"name": "foo"}}, PROCESS_ITEM_ID, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url,  "type")
-			if err != nil || db == nil {
-				t.Fatalf("Database could not be created %v\n", err)
-			}
-
-			defer os.Remove(tt.fields.url)
-			got, err := db.Update(tt.args.id, tt.args.partialItem)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Update() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("JSONLite.Update() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-*/
-
-func TestJSONLite_Select(t *testing.T) {
+func TestStore_Select(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -298,19 +291,19 @@ func TestJSONLite_Select(t *testing.T) {
 		url string
 	}
 	type args struct {
-		itemType   string
-		conditions []map[string]string
+		elementType string
+		conditions  []map[string]string
 	}
 	tests := []struct {
-		name      string
-		fields    fields
-		args      args
-		wantItems int
-		wantErr   bool
+		name         string
+		fields       fields
+		args         args
+		wantElements int
+		wantErr      bool
 	}{
-		{"Select", fields{testDir + ExampleStore}, args{"file", nil}, 2, false},
-		{"Select with filter", fields{testDir + ExampleStore}, args{"file", []map[string]string{{"name": "foo.doc"}}}, 1, false},
-		{"Select not existing", fields{testDir + ExampleStore}, args{"xxx", nil}, 0, false},
+		{"Select", fields{testDir}, args{"file", nil}, 2, false},
+		{"Select with filter", fields{testDir}, args{"file", []map[string]string{{"name": "foo.doc"}}}, 1, false},
+		{"Select not existing", fields{testDir}, args{"xxx", nil}, 0, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -320,18 +313,18 @@ func TestJSONLite_Select(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			gotItems, err := db.Select(tt.args.itemType, tt.args.conditions)
+			gotElements, err := db.Select(tt.args.elementType, tt.args.conditions)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Select() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.Select() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// assert.EqualValues(t, gotItems, tt.wantItems) // TODO check array content
-			assert.EqualValues(t, tt.wantItems, len(gotItems))
+			// assert.EqualValues(t, gotElements, tt.wantElements) // TODO check array content
+			assert.EqualValues(t, tt.wantElements, len(gotElements))
 		})
 	}
 }
 
-func TestJSONLite_All(t *testing.T) {
+func TestStore_All(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -339,12 +332,12 @@ func TestJSONLite_All(t *testing.T) {
 		url string
 	}
 	tests := []struct {
-		name      string
-		fields    fields
-		wantItems int
-		wantErr   bool
+		name         string
+		fields       fields
+		wantElements int
+		wantErr      bool
 	}{
-		{"All", fields{testDir + ExampleStore}, 7, false},
+		{"All", fields{testDir}, 7, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -354,13 +347,13 @@ func TestJSONLite_All(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			gotItems, err := db.All()
+			gotElements, err := db.All()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.All() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.All() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// assert.EqualValues(t, gotItems, tt.wantItems)
-			assert.Equal(t, tt.wantItems, len(gotItems))
+			// assert.EqualValues(t, gotElements, tt.wantElements)
+			assert.Equal(t, tt.wantElements, len(gotElements))
 		})
 	}
 }
@@ -378,13 +371,13 @@ func (ci *MockColumnType) ScanType() reflect.Type {
 type MockRows struct {
 	*sql.Rows
 	i     int
-	items []Item
+	elements []Element
 }
 
 func NewMockRows() *MockRows {
 	rs := MockRows{}
 	rs.i = 2
-	rs.items = []Item{
+	rs.elements = []Element{
 		{"id": 1, "foo": map[string]interface{}{"bar": "post"}, "body": "hello"},
 		{"id": 2, "foo": map[string]interface{}{"bar": "man"}, "body": "world"},
 	}
@@ -396,9 +389,9 @@ func (rs *MockRows) Next() bool {
 	return rs.i > 0
 }
 func (rs *MockRows) Scan(dest ...interface{}) error {
-	dest[0] = rs.items[0]["id"]
-	dest[0] = rs.items[0]["foo"]
-	dest[0] = rs.items[0]["body"]
+	dest[0] = rs.elements[0]["id"]
+	dest[0] = rs.elements[0]["foo"]
+	dest[0] = rs.elements[0]["body"]
 	return nil
 }
 func (rs *MockRows) ColumnTypeScanType(index int) reflect.Type {
@@ -412,7 +405,7 @@ func (rs *MockRows) ColumnTypeScanType(index int) reflect.Type {
 }
 */
 
-func TestJSONLite_rowsToItems(t *testing.T) {
+func TestStore_rowsToElements(t *testing.T) {
 
 	/* TODO create MockRows
 
@@ -430,10 +423,10 @@ func TestJSONLite_rowsToItems(t *testing.T) {
 		name      string
 		fields    fields
 		args      args
-		wantItems []Item
+		wantElements []Element
 		wantErr   bool
 	}{
-		{"Row to Items", fields{testDir + EXAMPLE_STORE}, args{rows}, items, false},
+		{"Row to Elements", fields{testDir + EXAMPLE_STORE}, args{rows}, elements, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -443,18 +436,18 @@ func TestJSONLite_rowsToItems(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			gotItems, err := db.rowsToItems(tt.args.rows)
+			gotElements, err := db.rowsToElements(tt.args.rows)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.rowsToItems() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.rowsToElements() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			assert.EqualValues(t, gotItems, tt.wantItems)
+			assert.EqualValues(t, gotElements, tt.wantElements)
 		})
 	}
 	*/
 }
 
-func TestJSONLite_getTables(t *testing.T) {
+func TestStore_getTables(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -474,7 +467,7 @@ func TestJSONLite_getTables(t *testing.T) {
 		want    map[string]map[string]string
 		wantErr bool
 	}{
-		{"Get Tables", fields{testDir + ExampleStore}, expectedTables, false},
+		{"Get Tables", fields{testDir}, expectedTables, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -486,17 +479,17 @@ func TestJSONLite_getTables(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			got, err := db.getTables()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.getTables() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.getTables() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("JSONLite.getTables() = %#v, want %#v", got, tt.want)
+				t.Errorf("Store.getTables() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestJSONLite_ensureTable(t *testing.T) {
+func TestStore_ensureTable(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -504,8 +497,8 @@ func TestJSONLite_ensureTable(t *testing.T) {
 		url string
 	}
 	type args struct {
-		flatItem Item
-		item     Item
+		flatElement Element
+		element     Element
 	}
 	tests := []struct {
 		name    string
@@ -513,7 +506,7 @@ func TestJSONLite_ensureTable(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{"Ensure table", fields{testDir + ExampleStore}, args{Item{"foo": 1, "type": "bar"}, Item{"foo": 1, "type": "bar"}}, false},
+		{"Ensure table", fields{testDir}, args{Element{"foo": 1, "type": "bar"}, Element{"foo": 1, "type": "bar"}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -523,14 +516,14 @@ func TestJSONLite_ensureTable(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			if err := db.ensureTable(tt.args.flatItem, tt.args.item); (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.ensureTable() error = %v, wantErr %v", err, tt.wantErr)
+			if err := db.ensureTable(tt.args.flatElement, tt.args.element); (err != nil) != tt.wantErr {
+				t.Errorf("Store.ensureTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestJSONLite_createTable(t *testing.T) {
+func TestStore_createTable(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t)
 
@@ -538,7 +531,7 @@ func TestJSONLite_createTable(t *testing.T) {
 		url string
 	}
 	type args struct {
-		flatItem Item
+		flatElement Element
 	}
 	tests := []struct {
 		name    string
@@ -546,7 +539,7 @@ func TestJSONLite_createTable(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{"Create table", fields{testDir + ExampleStore}, args{Item{"foo": 1, "type": "bar"}}, false},
+		{"Create table", fields{testDir}, args{Element{"foo": 1, "type": "bar"}}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -556,8 +549,8 @@ func TestJSONLite_createTable(t *testing.T) {
 			}
 
 			defer os.Remove(tt.fields.url)
-			if err := db.createTable(tt.args.flatItem); (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.createTable() error = %v, wantErr %v", err, tt.wantErr)
+			if err := db.createTable(tt.args.flatElement); (err != nil) != tt.wantErr {
+				t.Errorf("Store.createTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -584,7 +577,7 @@ func Test_getSQLDataType(t *testing.T) {
 	}
 }
 
-func TestJSONLite_Validate(t *testing.T) {
+func TestStore_Validate(t *testing.T) {
 	testDir := setup(t)
 
 	type fields struct {
@@ -596,7 +589,7 @@ func TestJSONLite_Validate(t *testing.T) {
 		wantE   []string
 		wantErr bool
 	}{
-		{"Validate valid", fields{testDir + ExampleStore}, []string{}, false},
+		{"Validate valid", fields{testDir}, []string{}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -609,17 +602,17 @@ func TestJSONLite_Validate(t *testing.T) {
 
 			gotE, err := db.Validate()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(gotE, tt.wantE) {
-				t.Errorf("JSONLite.Validate() = %v, want %v", gotE, tt.wantE)
+				t.Errorf("Store.Validate() = %v, want %v", gotE, tt.wantE)
 			}
 		})
 	}
 }
 
-func TestJSONLite_validateItemSchema(t *testing.T) {
+func TestStore_validateElementSchema(t *testing.T) {
 	testDir := setup(t)
 
 	content := []byte(`{
@@ -639,7 +632,7 @@ func TestJSONLite_validateItemSchema(t *testing.T) {
 		url string
 	}
 	type args struct {
-		item Item
+		element Element
 	}
 	tests := []struct {
 		name      string
@@ -648,8 +641,8 @@ func TestJSONLite_validateItemSchema(t *testing.T) {
 		wantFlaws int
 		wantErr   bool
 	}{
-		{"valid", fields{testDir + ExampleStore}, args{Item{"type": "file", "name": "foo.txt"}}, 0, false},
-		{"invalid", fields{testDir + ExampleStore}, args{Item{"type": "file", "foo": "foo.txt"}}, 1, false},
+		{"valid", fields{testDir}, args{Element{"type": "file", "name": "foo.txt"}}, 0, false},
+		{"invalid", fields{testDir}, args{Element{"type": "file", "foo": "foo.txt"}}, 1, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -668,19 +661,19 @@ func TestJSONLite_validateItemSchema(t *testing.T) {
 				t.Error(err)
 			}
 
-			gotFlaws, err := db.validateItemSchema(tt.args.item)
+			gotFlaws, err := db.validateElementSchema(tt.args.element)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.validateItemSchema() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.validateElementSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if len(gotFlaws) != tt.wantFlaws {
-				t.Errorf("JSONLite.validateItemSchema() = %v, want %v", gotFlaws, tt.wantFlaws)
+				t.Errorf("Store.validateElementSchema() = %v, want %v", gotFlaws, tt.wantFlaws)
 			}
 		})
 	}
 }
 
-func TestJSONLite_StoreFile(t *testing.T) {
+func TestStore_StoreFile(t *testing.T) {
 	testDir := setup(t)
 
 	type fields struct {
@@ -697,8 +690,8 @@ func TestJSONLite_StoreFile(t *testing.T) {
 		wantData      []byte
 		wantErr       bool
 	}{
-		{"first file", fields{testDir + ExampleStore}, args{"test.txt"}, "test.txt", []byte("foo"), false},
-		{"second file", fields{testDir + ExampleStore}, args{"test.txt"}, "test_0.txt", []byte("bar"), false},
+		{"first file", fields{testDir}, args{"test.txt"}, "test.txt", []byte("foo"), false},
+		{"second file", fields{testDir}, args{"test.txt"}, "test_0.txt", []byte("bar"), false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -709,7 +702,7 @@ func TestJSONLite_StoreFile(t *testing.T) {
 
 			gotStorePath, gotFile, err := db.StoreFile(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("JSONLite.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Store.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -723,7 +716,7 @@ func TestJSONLite_StoreFile(t *testing.T) {
 			}
 
 			if filepath.Base(gotStorePath) != tt.wantStorePath {
-				t.Errorf("JSONLite.StoreFile() gotStorePath = %v, want %v", filepath.Base(gotStorePath), tt.wantStorePath)
+				t.Errorf("Store.StoreFile() gotStorePath = %v, want %v", filepath.Base(gotStorePath), tt.wantStorePath)
 			}
 
 			load, err := db.LoadFile(gotStorePath)
@@ -735,7 +728,7 @@ func TestJSONLite_StoreFile(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(b, tt.wantData) {
-				t.Errorf("JSONLite.StoreFile() gotFile = %v, want %v", b, tt.wantData)
+				t.Errorf("Store.StoreFile() gotFile = %v, want %v", b, tt.wantData)
 			}
 		})
 	}

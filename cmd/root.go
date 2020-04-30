@@ -29,7 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
+	"github.com/forensicanalysis/forensicstore"
 )
 
 // Create is the forensicstore create commandline subcommand
@@ -39,7 +39,7 @@ func Create() *cobra.Command {
 		Short: "Create a forensicstore",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.New(storeName)
 			if err != nil {
 				return err
 			}
@@ -48,16 +48,16 @@ func Create() *cobra.Command {
 	}
 }
 
-// Item is the forensicstore item commandline subcommand
-func Item() *cobra.Command {
-	itemCommand := &cobra.Command{
-		Use:   "item",
+// Element is the forensicstore element commandline subcommand
+func Element() *cobra.Command {
+	elementCommand := &cobra.Command{
+		Use:   "element",
 		Short: "Manipulate the forensicstore via the commandline",
 		Args:  requireOneStore,
 	}
-	itemCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
+	elementCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
 		insertCommand(), updateCommand())
-	return itemCommand
+	return elementCommand
 }
 
 // Validate is the forensicstore validate commandline subcommand
@@ -65,11 +65,11 @@ func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{
 		Use:   "validate",
-		Short: "Validate all items",
+		Short: "Validate all elements",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.New(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err

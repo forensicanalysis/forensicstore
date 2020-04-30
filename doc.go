@@ -22,27 +22,4 @@
 // Package forensicstore can create,
 // access and process forensic artifacts bundled in so called forensicstores
 // (a database for metadata and subfolders with forensic artifacts).
-//
-// The forensicstore format
-//
-// The forensicstore format implements the following conventions:
-//     - The forensicstore is a folder containing an item.db file and an arbitrary number of other folders.
-//     - The item.db file contains metadata for all extracted artifacts in a forensic investigation in jsonlite format (flattened json objects in a sqlite database).
-//     - Items are represented as json objects.
-//     - Items are valid STIX 2.0 Observable Objects where applicable.
-//     - Items must not have dots (".") in their json keys.
-//     - Files stored in the forensicstore are referenced by item attributes ending in _path, e.g. export_path, stdout_path and wmi_path.
-//     - Any item stored in the forensicstore can have an errors attribute that contains errors that are related to retrival or pro-cessing of this item.
-//
-// Structure
-//
-// An example directory structure for a forensicstore:
-//     example.forensicstore/
-//     ├── ChromeCache
-//     │   ├── 0003357376fd75df_0
-//     │   └── ...
-//     ├── ChromeHistory
-//     │   └── History
-//     ├── ...
-//     └── item.db
 package forensicstore

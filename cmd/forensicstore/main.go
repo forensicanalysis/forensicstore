@@ -23,36 +23,22 @@
 // various subcommands that can be used to edit and handle forensicstores.
 //     create    Create a forensicstore
 //     import    Import another forensicstore or stix json
-//     item      Edit the forensicstore (insert, get, select, all)
+//     element      Edit the forensicstore (insert, get, select, all)
 //     process   Process a workflow.yml
-//     serve     Run a http(s) API and serve the forensicstore
-//     ui        Start the forensicstore desktop app
 //     validate  Validate forensicstores
 //
 // Usage
 //
 // Create a forensicstore
 //     forensicstore create my.forensicstore
-// Insert and fetch items
-//     forensicstore item insert '{"type": "test", "foo": "bar"}' my.forensicstore
-//     forensicstore item get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 my.forensicstore > myitem.json
-//     forensicstore item select foo my.forensicstore > foo_export.json
-//     forensicstore item all my.forensicstore > export.json
+// Insert and fetch elements
+//     forensicstore element insert '{"type": "test", "foo": "bar"}' my.forensicstore
+//     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 my.forensicstore > myelement.json
+//     forensicstore element select foo my.forensicstore > foo_export.json
+//     forensicstore element all my.forensicstore > export.json
 // Process forensicstore
 //     forensicstore process --workflow myreports.yml my.forensicstore
-// Serve forensicstore
-//     forensicstore serve --port=8080 my.forensicstore
 //
-//     curl -X POST -H "Content-Type: application/json" -d '{"type": "test", "foo": "bar"}' \
-//       localhost:8080/
-//
-//     curl localhost:8080/foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818
-//
-//     curl localhost:8080/foo
-//
-//     curl localhost:8080/?per_page=10&page=2
-// Browse forensicstore
-//     forensicstore ui
 // Validate forensictore
 //     forensicstore validate my.forensicstore
 package main
@@ -71,7 +57,7 @@ func main() {
 		Use:   "forensicstore",
 		Short: "Handle forensicstore files",
 	}
-	rootCmd.AddCommand(cmd.Item(), cmd.Create(), cmd.Validate())
+	rootCmd.AddCommand(cmd.Element(), cmd.Create(), cmd.Validate())
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
