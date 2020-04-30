@@ -49,7 +49,7 @@ teardown() {
 @test "jsonlite get" {
     forensicstore element get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 test/forensicstore/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"uid": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+    echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
     echo "a"
     run cat $TESTDIR/a.json
@@ -87,7 +87,7 @@ teardown() {
 
 @test "jsonlite insert" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -103,7 +103,7 @@ teardown() {
     # verify inserted element with id
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
@@ -111,10 +111,10 @@ teardown() {
 
 @test "jsonlite insert new field" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
-    run forensicstore element insert '{"type": "foo", "foo": "bar", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
     # 8 elements should be in the store now
@@ -126,7 +126,7 @@ teardown() {
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     echo $output
@@ -135,7 +135,7 @@ teardown() {
     # verify inserted element with id 11
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "foo": "bar", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "foo": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
@@ -143,7 +143,7 @@ teardown() {
 
 @test "jsonlite insert int 0" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "foo", "size": 0, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "size": 0, "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -156,7 +156,7 @@ teardown() {
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "size": 0, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "size": 0, "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
@@ -164,7 +164,7 @@ teardown() {
 
 @test "jsonlite insert empty list" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "foo", "list": [], "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "list": [], "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -177,7 +177,7 @@ teardown() {
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
@@ -185,7 +185,7 @@ teardown() {
 
 @test "jsonlite insert element with none value" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "foo", "list": null, "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "list": null, "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -eq 0 ]
 
@@ -198,7 +198,7 @@ teardown() {
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
@@ -206,7 +206,7 @@ teardown() {
 
 @test "jsonlite insert element with empty value" {
     cp -R test/forensicstore/. $TESTDIR/
-    run forensicstore element insert '{"type": "file", "name": "foo.txt", "created": "", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "file", "name": "foo.txt", "created": "", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     echo $output
     [ "$status" -ne 0 ]
     skip "TODO: Fix error output"
@@ -219,7 +219,7 @@ teardown() {
 
 #     forensicstore element get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-#     echo '{"uid": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": ["-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+#     echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": ["-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
 #     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
 #     [ "$status" -eq 0 ]
@@ -230,12 +230,12 @@ teardown() {
 #     forensicstore create $TESTDIR/1/tmp.forensicstore
 #
 #     echo 'aaa' > $TESTDIR/1/tmp.forensicstore/testfile.txt
-#     forensicstore element insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/1/tmp.forensicstore
+#     forensicstore element insert '{"type": "foo", "export_path": "testfile.txt", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/1/tmp.forensicstore
 #
 #     mkdir $TESTDIR/2
 #     forensicstore create $TESTDIR/2/tmp.forensicstore
 #     echo 'bbb' > $TESTDIR/2/tmp.forensicstore/testfile.txt
-#     forensicstore element insert '{"type": "foo", "export_path": "testfile.txt", "uid": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/2/tmp.forensicstore
+#     forensicstore element insert '{"type": "foo", "export_path": "testfile.txt", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/2/tmp.forensicstore
 #
 #     forensicstore import $TESTDIR/2/tmp.forensicstore $TESTDIR/1/tmp.forensicstore
 #

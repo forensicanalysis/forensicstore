@@ -24,7 +24,6 @@
 package forensicstore
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -34,20 +33,18 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/qri-io/jsonschema"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
 	ProcessElementId = "process--920d7c41-0fef-4cf8-bce2-ead120f6b506"
 	ProcessElement   = Element{
-		"uid":          ProcessElementId,
+		"id":           ProcessElementId,
 		"artifact":     "IPTablesRules",
 		"type":         "process",
 		"name":         "iptables",
-		"created":      "2016-01-20T14:11:25.550Z",
+		"created_time": "2016-01-20T14:11:25.550Z",
 		"cwd":          "/root/",
-		"arguments":    []interface{}{"-L", "-n", "-v"},
 		"command_line": "/sbin/iptables -L -n -v",
 		"stdout_path":  "IPTablesRules/stdout",
 		"stderr_path":  "IPTablesRules/stderr",
@@ -55,25 +52,34 @@ var (
 	}
 )
 
-var exampleStore = "/example1.forensicstore"
+var exampleStore = "example1.forensicstore"
 
 func setup(t *testing.T) string {
 	dir, err := ioutil.TempDir("", t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
-	input, err := ioutil.ReadFile("../test/forensicstore/example1.forensicstore/element.db")
+	src := filepath.Join("test", "forensicstore", exampleStore)
+	dst := filepath.Join(dir, exampleStore)
+	for _, name := range []string{"element.db", filepath.Join("WindowsAMCacheHveFile", "Amcache.hve"), filepath.Join("IPTablesRules", "stderr"), filepath.Join("IPTablesRules", "stdout"), filepath.Join("WMILogicalDisks", "stdout"), filepath.Join("WMILogicalDisks", "wmi"), filepath.Join("WMILogicalDisks", "stderr")} {
+		CopyFile(t, filepath.Join(src, name), filepath.Join(dst, name))
+	}
+
+	return filepath.Join(dir, exampleStore)
+}
+
+func CopyFile(t *testing.T, src, dst string) {
+	input, err := ioutil.ReadFile(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = os.MkdirAll(dir+exampleStore, 0755)
+	err = os.MkdirAll(filepath.Dir(dst), 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ioutil.WriteFile(dir+exampleStore+"/element.db", input, 0644); err != nil {
+	if err := ioutil.WriteFile(dst, input, 0644); err != nil {
 		t.Fatal(err)
 	}
-	return dir + string(filepath.Separator)
 }
 
 func teardown(t *testing.T) {
@@ -103,7 +109,7 @@ func TestNew(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{"NewJSONLite", args{tempDir}, false},
+		{"New", args{tempDir}, false},
 		{"Wrong URL", args{"foo\x00bar"}, true},
 	}
 	for _, tt := range tests {
@@ -111,7 +117,7 @@ func TestNew(t *testing.T) {
 			_, err := New(tt.args.remoteURL)
 			defer os.Remove(tt.args.remoteURL)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewJSONLite() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
@@ -149,16 +155,16 @@ func TestStore_Insert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
 			got, err := db.Insert(tt.args.element)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.Insert() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.Insert() error = %v, wantErr %v", err, tt.wantErr)
 			} else if got[:4] != tt.want {
-				t.Errorf("Store.Insert() = %v, want %v", got[:4], tt.want)
+				t.Errorf("ForensicStore.Insert() = %v, want %v", got[:4], tt.want)
 			}
 		})
 	}
@@ -192,7 +198,7 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store, err := New(testDir + exampleStore)
+			store, err := Open(testDir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -229,7 +235,7 @@ func TestStore_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log.Print("get2")
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			log.Print("get3")
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
@@ -238,7 +244,7 @@ func TestStore_Get(t *testing.T) {
 			// defer os.Remove(tt.fields.url)
 			gotElement, err := db.Get(tt.args.id)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.Get() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.EqualValues(t, gotElement, tt.wantElement)
@@ -267,7 +273,7 @@ func TestStore_QueryStore(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -275,7 +281,7 @@ func TestStore_QueryStore(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			gotElements, err := db.Query(tt.args.query)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.Query() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.Query() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.EqualValues(t, gotElements, tt.wantElements)
@@ -307,7 +313,7 @@ func TestStore_Select(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -315,7 +321,7 @@ func TestStore_Select(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			gotElements, err := db.Select(tt.args.elementType, tt.args.conditions)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.Select() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.Select() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			// assert.EqualValues(t, gotElements, tt.wantElements) // TODO check array content
@@ -341,7 +347,7 @@ func TestStore_All(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -349,7 +355,7 @@ func TestStore_All(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			gotElements, err := db.All()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.All() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.All() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			// assert.EqualValues(t, gotElements, tt.wantElements)
@@ -438,7 +444,7 @@ func TestStore_rowsToElements(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			gotElements, err := db.rowsToElements(tt.args.rows)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.rowsToElements() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.rowsToElements() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.EqualValues(t, gotElements, tt.wantElements)
@@ -452,10 +458,10 @@ func TestStore_getTables(t *testing.T) {
 	defer teardown(t)
 
 	expectedTables := map[string]map[string]string{
-		"directory":            {"accessed": "TEXT", "artifact": "TEXT", "created": "TEXT", "modified": "TEXT", "path": "TEXT", "type": "TEXT", "uid": "TEXT"},
-		"file":                 {"accessed": "TEXT", "artifact": "TEXT", "created": "TEXT", "export_path": "TEXT", "hashes.MD5": "TEXT", "hashes.SHA-1": "TEXT", "modified": "TEXT", "name": "TEXT", "origin.path": "TEXT", "origin.volume": "TEXT", "size": "INTEGER", "type": "TEXT", "uid": "TEXT"},
-		"process":              {"arguments.0": "TEXT", "arguments.1": "TEXT", "arguments.2": "TEXT", "artifact": "TEXT", "command_line": "TEXT", "created": "TEXT", "cwd": "TEXT", "name": "TEXT", "return_code": "INTEGER", "stderr_path": "TEXT", "stdout_path": "TEXT", "type": "TEXT", "uid": "TEXT", "wmi_path": "TEXT"},
-		"windows-registry-key": {"artifact": "TEXT", "key": "TEXT", "modified": "TEXT", "type": "TEXT", "uid": "TEXT", "values.0.data": "TEXT", "values.0.data_type": "TEXT", "values.0.name": "TEXT"},
+		"directory":            {"atime": "TEXT", "artifact": "TEXT", "ctime": "TEXT", "mtime": "TEXT", "path": "TEXT", "type": "TEXT", "id": "TEXT"},
+		"file":                 {"atime": "TEXT", "artifact": "TEXT", "ctime": "TEXT", "export_path": "TEXT", "hashes.MD5": "TEXT", "hashes.SHA-1": "TEXT", "mtime": "TEXT", "name": "TEXT", "origin.path": "TEXT", "origin.volume": "TEXT", "size": "INTEGER", "type": "TEXT", "id": "TEXT"},
+		"process":              {"artifact": "TEXT", "command_line": "TEXT", "created_time": "TEXT", "cwd": "TEXT", "name": "TEXT", "return_code": "INTEGER", "stderr_path": "TEXT", "stdout_path": "TEXT", "type": "TEXT", "id": "TEXT", "wmi_path": "TEXT"},
+		"windows-registry-key": {"artifact": "TEXT", "key": "TEXT", "modified_time": "TEXT", "type": "TEXT", "id": "TEXT", "values.0.data": "TEXT", "values.0.data_type": "TEXT", "values.0.name": "TEXT"},
 	}
 
 	type fields struct {
@@ -471,7 +477,7 @@ func TestStore_getTables(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -479,11 +485,11 @@ func TestStore_getTables(t *testing.T) {
 			defer os.Remove(tt.fields.url)
 			got, err := db.getTables()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.getTables() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.getTables() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Store.getTables() = %#v, want %#v", got, tt.want)
+				t.Errorf("ForensicStore.getTables() = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
@@ -510,14 +516,14 @@ func TestStore_ensureTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
 			defer os.Remove(tt.fields.url)
 			if err := db.ensureTable(tt.args.flatElement, tt.args.element); (err != nil) != tt.wantErr {
-				t.Errorf("Store.ensureTable() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.ensureTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -543,14 +549,14 @@ func TestStore_createTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
 			defer os.Remove(tt.fields.url)
 			if err := db.createTable(tt.args.flatElement); (err != nil) != tt.wantErr {
-				t.Errorf("Store.createTable() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.createTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -593,7 +599,7 @@ func TestStore_Validate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
@@ -602,11 +608,11 @@ func TestStore_Validate(t *testing.T) {
 
 			gotE, err := db.Validate()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.Validate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(gotE, tt.wantE) {
-				t.Errorf("Store.Validate() = %v, want %v", gotE, tt.wantE)
+				t.Errorf("ForensicStore.Validate() = \n%#v\n, want \n%#v", gotE, tt.wantE)
 			}
 		})
 	}
@@ -615,18 +621,19 @@ func TestStore_Validate(t *testing.T) {
 func TestStore_validateElementSchema(t *testing.T) {
 	testDir := setup(t)
 
-	content := []byte(`{
-	"$id": "file",
-	"$schema": "http://json-schema.org/draft-04/schema#",
-	"title": "file",
-	"type": "object",
-	"allOf": [{"properties": {
-		"type": {"type": "string","enum": ["file"]},
-		"size": {"type": "integer","minimum": 0},
-		"name": {"type": "string"}
-	}}],
-	"anyOf": [{"required": ["name"]}]
-	}`)
+	testElement1 := map[string]interface{}{
+		"id":   "file--920d7c41-0fef-4cf8-bce2-ead120f6b506",
+		"type": "file",
+		"name": "foo.txt",
+		"hashes": map[string]interface{}{
+			"MD5": "0356a89e11fcbed1288a0553377541af",
+		},
+	}
+	testElement2 := Element{
+		"id":   "file--920d7c41-0fef-4cf8-bce2-ead120f6b506",
+		"type": "file",
+		"foo":  "foo.txt",
+	}
 
 	type fields struct {
 		url string
@@ -641,33 +648,23 @@ func TestStore_validateElementSchema(t *testing.T) {
 		wantFlaws int
 		wantErr   bool
 	}{
-		{"valid", fields{testDir}, args{Element{"type": "file", "name": "foo.txt"}}, 0, false},
-		{"invalid", fields{testDir}, args{Element{"type": "file", "foo": "foo.txt"}}, 1, false},
+		{"valid", fields{testDir}, args{testElement1}, 0, false},
+		{"invalid", fields{testDir}, args{testElement2}, 1, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
-			schema := &jsonschema.RootSchema{}
-			if err := json.Unmarshal(content, schema); err != nil {
-				t.Errorf("unmarshal error")
-			}
-
-			err = db.SetSchema(schema.ID, schema)
-			if err != nil {
-				t.Error(err)
-			}
-
 			gotFlaws, err := db.validateElementSchema(tt.args.element)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.validateElementSchema() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.validateElementSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if len(gotFlaws) != tt.wantFlaws {
-				t.Errorf("Store.validateElementSchema() = %v, want %v", gotFlaws, tt.wantFlaws)
+				t.Errorf("ForensicStore.validateElementSchema() = %v, want %v", gotFlaws, tt.wantFlaws)
 			}
 		})
 	}
@@ -695,14 +692,14 @@ func TestStore_StoreFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := New(tt.fields.url)
+			db, err := Open(tt.fields.url)
 			if err != nil || db == nil {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 
 			gotStorePath, gotFile, err := db.StoreFile(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Store.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ForensicStore.StoreFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
@@ -716,7 +713,7 @@ func TestStore_StoreFile(t *testing.T) {
 			}
 
 			if filepath.Base(gotStorePath) != tt.wantStorePath {
-				t.Errorf("Store.StoreFile() gotStorePath = %v, want %v", filepath.Base(gotStorePath), tt.wantStorePath)
+				t.Errorf("ForensicStore.StoreFile() gotStorePath = %v, want %v", filepath.Base(gotStorePath), tt.wantStorePath)
 			}
 
 			load, err := db.LoadFile(gotStorePath)
@@ -728,7 +725,7 @@ func TestStore_StoreFile(t *testing.T) {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(b, tt.wantData) {
-				t.Errorf("Store.StoreFile() gotFile = %v, want %v", b, tt.wantData)
+				t.Errorf("ForensicStore.StoreFile() gotFile = %v, want %v", b, tt.wantData)
 			}
 		})
 	}

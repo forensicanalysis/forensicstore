@@ -24,11 +24,14 @@ package forensicstore_test
 import (
 	"fmt"
 	"github.com/forensicanalysis/forensicstore"
+	"os"
 )
 
 func Example() {
 	// create forensicstore
 	store, _ := forensicstore.New("example.forensicstore")
+	defer os.RemoveAll("example.forensicstore")
+	defer store.Close()
 
 	// create a struct
 	evidence := struct {

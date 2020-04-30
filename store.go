@@ -64,13 +64,13 @@ const (
 
 const discriminator = "type"
 
-// The Store is a central storage for elements in digital forensic
+// The ForensicStore is a central storage for elements in digital forensic
 // investigations. It stores any piece of information in the investigation and
 // serves as a single source of truth for the data. Cases, artifacts, evidence,
 // meta data, bookmarks etc. can be stored in the forensicstore. Larger binary
 // objects like files are usually stored outside the forensicstore and references
 // from the forensicstore.
-type Store struct {
+type ForensicStore struct {
 	afero.Fs
 	NewDB       bool
 	storeFolder string
@@ -81,19 +81,23 @@ type Store struct {
 	schemas     *schemaMap
 }
 
-// New creates or opens a Store database.
-func New(url string) (*Store, error) { // nolint:gocyclo
+var ErrStoreExists = fmt.Errorf("store already exists: %w", os.ErrExist)
+var ErrStoreNotExists = fmt.Errorf("store does not exist: %w", os.ErrNotExist)
+
+// New creates a new Forensicstore.
+func New(url string) (*ForensicStore, error) { // nolint:gocyclo
 	return open(url, true)
 }
 
-func Open(url string) (*Store, error) { // nolint:gocyclo
+// Open opens an existing Forensicstore.
+func Open(url string) (*ForensicStore, error) { // nolint:gocyclo
 	return open(url, false)
 }
 
-func open(url string, create bool) (*Store, error) { // nolint:gocyclo
+func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 	url = strings.TrimRight(url, "/")
 
-	db := &Store{
+	db := &ForensicStore{
 		Fs:          afero.NewOsFs(),
 		storeFolder: url,
 	}
@@ -104,10 +108,10 @@ func open(url string, create bool) (*Store, error) { // nolint:gocyclo
 		return nil, err
 	}
 	if create && exists {
-		return nil, os.ErrExist
+		return nil, ErrStoreExists
 	}
 	if !create && !exists {
-		return nil, os.ErrNotExist
+		return nil, ErrStoreNotExists
 	}
 
 	if create {
@@ -140,12 +144,16 @@ func open(url string, create bool) (*Store, error) { // nolint:gocyclo
 		db.tables.store(tableName, table)
 	}
 
+	nameTitle := map[string]string{}
+
 	// unmarshal schemas
 	for name, content := range stixgo.FS {
 		schema := &jsonschema.RootSchema{}
 		if err := json.Unmarshal(content, schema); err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
 		}
+
+		nameTitle[path.Base(name)] = schema.Title
 
 		err = db.SetSchema(schema.Title, schema)
 		if err != nil {
@@ -158,7 +166,7 @@ func open(url string, create bool) (*Store, error) { // nolint:gocyclo
 		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
 			if sch, ok := elem.(*jsonschema.Schema); ok {
 				if sch.Ref != "" && sch.Ref[0] != '#' {
-					sch.Ref = "jsonlite:" + strings.TrimSuffix(path.Base(sch.Ref), ".json")
+					sch.Ref = "jsonlite:" + nameTitle[path.Base(sch.Ref)]
 				}
 			}
 			return nil
@@ -167,7 +175,7 @@ func open(url string, create bool) (*Store, error) { // nolint:gocyclo
 			return nil, err
 		}
 
-		jsonschema.DefaultSchemaPool["jsonlite:"+schema.Title] = &schema.Schema // TODO fill cache only once
+		jsonschema.DefaultSchemaPool["jsonlite:"+schema.Title] = &schema.Schema
 	}
 
 	// fetch references
@@ -186,7 +194,7 @@ func open(url string, create bool) (*Store, error) { // nolint:gocyclo
 ################################ */
 
 // Insert adds a single element.
-func (db *Store) Insert(elem Element) (string, error) {
+func (db *ForensicStore) Insert(elem Element) (string, error) {
 	ids, err := db.InsertBatch([]Element{elem})
 	if err != nil {
 		return "", err
@@ -195,7 +203,7 @@ func (db *Store) Insert(elem Element) (string, error) {
 }
 
 // InsertBatch adds a set of elements. All elements must have the same fields.
-func (db *Store) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo
+func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo
 	if len(elements) == 0 {
 		return nil, nil
 	}
@@ -283,7 +291,7 @@ func (db *Store) InsertBatch(elements []Element) ([]string, error) { // nolint:g
 }
 
 // InsertStruct converts a Go struct to a map and inserts it.
-func (db *Store) InsertStruct(element interface{}) (string, error) {
+func (db *ForensicStore) InsertStruct(element interface{}) (string, error) {
 	ids, err := db.InsertStructBatch([]interface{}{element})
 	if err != nil {
 		return "", err
@@ -292,7 +300,7 @@ func (db *Store) InsertStruct(element interface{}) (string, error) {
 }
 
 // InsertStructBatch adds a list of structs to the forensicstore.
-func (db *Store) InsertStructBatch(elements []interface{}) ([]string, error) {
+func (db *ForensicStore) InsertStructBatch(elements []interface{}) ([]string, error) {
 	var ms []Element
 	for _, element := range elements {
 		m := structs.Map(element)
@@ -304,7 +312,7 @@ func (db *Store) InsertStructBatch(elements []interface{}) ([]string, error) {
 }
 
 // Get retreives a single element.
-func (db *Store) Get(id string) (element Element, err error) {
+func (db *ForensicStore) Get(id string) (element Element, err error) {
 	parts := strings.Split(id, "--")
 	discriminator := parts[0]
 
@@ -331,7 +339,7 @@ func (db *Store) Get(id string) (element Element, err error) {
 }
 
 // Query executes a sql query.
-func (db *Store) Query(query string) (elements []Element, err error) {
+func (db *ForensicStore) Query(query string) (elements []Element, err error) {
 	stmt, err := db.cursor.Prepare(query)
 	if err != nil {
 		return nil, err
@@ -348,7 +356,7 @@ func (db *Store) Query(query string) (elements []Element, err error) {
 }
 
 // StoreFile adds a file to the database folder.
-func (db *Store) StoreFile(filePath string) (storePath string, file afero.File, err error) {
+func (db *ForensicStore) StoreFile(filePath string) (storePath string, file afero.File, err error) {
 	err = db.MkdirAll(filepath.Join(db.storeFolder, filepath.Dir(filePath)), 0755)
 	if err != nil {
 		return "", nil, err
@@ -381,12 +389,12 @@ func (db *Store) StoreFile(filePath string) (storePath string, file afero.File, 
 }
 
 // LoadFile opens a file from the database folder.
-func (db *Store) LoadFile(filePath string) (file afero.File, err error) {
+func (db *ForensicStore) LoadFile(filePath string) (file afero.File, err error) {
 	return db.Open(path.Join(db.storeFolder, filePath))
 }
 
 // Close saves and closes the database.
-func (db *Store) Close() error {
+func (db *ForensicStore) Close() error {
 	return db.cursor.Close()
 }
 
@@ -395,7 +403,7 @@ func (db *Store) Close() error {
 ################################ */
 
 // Validate checks the database for various flaws.
-func (db *Store) Validate() (flaws []string, err error) {
+func (db *ForensicStore) Validate() (flaws []string, err error) {
 	flaws = []string{}
 	expectedFiles := map[string]bool{}
 	expectedFiles[filepath.FromSlash("/element.db")] = true
@@ -451,7 +459,7 @@ func (db *Store) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (db *Store) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo
+func (db *ForensicStore) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo
 	flaws = []string{}
 	elementExpectedFiles = []string{}
 
@@ -531,7 +539,7 @@ func (db *Store) validateElement(element Element) (flaws []string, elementExpect
 	return flaws, elementExpectedFiles, nil
 }
 
-func (db *Store) validateElementSchema(element Element) (flaws []string, err error) {
+func (db *ForensicStore) validateElementSchema(element Element) (flaws []string, err error) {
 	rootSchema, err := db.Schema(element[discriminator].(string))
 	if err != nil {
 		if err == errSchemaNotFound {
@@ -540,8 +548,8 @@ func (db *Store) validateElementSchema(element Element) (flaws []string, err err
 		return nil, errors.Wrap(err, "could not get schema")
 	}
 
-	var i map[string]interface{} = element
 	var errs []jsonschema.ValError
+	var i map[string]interface{} = element
 	rootSchema.Validate("/", i, &errs)
 	for _, err := range errs {
 		id := ""
@@ -555,7 +563,7 @@ func (db *Store) validateElementSchema(element Element) (flaws []string, err err
 }
 
 // Select retrieves all elements of a discriminated attribute.
-func (db *Store) Select(elementType string, conditions []map[string]string) (elements []Element, err error) {
+func (db *ForensicStore) Select(elementType string, conditions []map[string]string) (elements []Element, err error) {
 	var ors []string
 	for _, condition := range conditions {
 		var ands []string
@@ -593,7 +601,7 @@ func (db *Store) Select(elementType string, conditions []map[string]string) (ele
 }
 
 // All returns every element.
-func (db *Store) All() (elements []Element, err error) {
+func (db *ForensicStore) All() (elements []Element, err error) {
 	elements = []Element{}
 
 	stmt, err := db.cursor.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%sqlite%';")
@@ -628,7 +636,7 @@ func (db *Store) All() (elements []Element, err error) {
 /* ################################
 #   Intern
 ################################ */
-func (db *Store) rowsToElements(rows *sql.Rows) (elements []Element, err error) {
+func (db *ForensicStore) rowsToElements(rows *sql.Rows) (elements []Element, err error) {
 	defer rows.Close() //good habit to closes
 	cols, _ := rows.Columns()
 
@@ -694,7 +702,7 @@ type columnInfo struct {
 	pk        int
 }
 
-func (db *Store) getTables() (map[string]map[string]string, error) {
+func (db *ForensicStore) getTables() (map[string]map[string]string, error) {
 	db.sqlMutex.RLock()
 	rows, err := db.cursor.Query("SELECT name FROM sqlite_master")
 	db.sqlMutex.RUnlock()
@@ -736,7 +744,7 @@ func (db *Store) getTables() (map[string]map[string]string, error) {
 	return tables, nil
 }
 
-func (db *Store) ensureTable(flatElement Element, element Element) error {
+func (db *ForensicStore) ensureTable(flatElement Element, element Element) error {
 	elementType := element[discriminator].(string)
 
 	db.sqlMutex.Lock()
@@ -763,7 +771,7 @@ func (db *Store) ensureTable(flatElement Element, element Element) error {
 	return nil
 }
 
-func (db *Store) createTable(flatElement Element) error {
+func (db *ForensicStore) createTable(flatElement Element) error {
 	table := map[string]string{"id": "TEXT", discriminator: "TEXT"}
 	db.tables.store(flatElement[discriminator].(string), table)
 
@@ -792,7 +800,7 @@ func getSQLDataType(value interface{}) string {
 	}
 }
 
-func (db *Store) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
+func (db *ForensicStore) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
 	sort.Strings(newColumns)
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
@@ -806,7 +814,7 @@ func (db *Store) addMissingColumns(table string, columns map[string]interface{},
 }
 
 // SetSchema inserts or replaces a json schema for input validation.
-func (db *Store) SetSchema(id string, schema *jsonschema.RootSchema) error {
+func (db *ForensicStore) SetSchema(id string, schema *jsonschema.RootSchema) error {
 	if val, ok := db.schemas.load(id); ok && val == schema {
 		return nil
 	}
@@ -819,7 +827,7 @@ func (db *Store) SetSchema(id string, schema *jsonschema.RootSchema) error {
 var errSchemaNotFound = errors.New("schema not found")
 
 // Schema gets a single schema from the database.
-func (db *Store) Schema(id string) (*jsonschema.RootSchema, error) {
+func (db *ForensicStore) Schema(id string) (*jsonschema.RootSchema, error) {
 	if schema, ok := db.schemas.load(id); ok {
 		return schema, nil
 	}
@@ -828,6 +836,6 @@ func (db *Store) Schema(id string) (*jsonschema.RootSchema, error) {
 }
 
 // Schemas gets all schemas from the database.
-func (db *Store) Schemas() []*jsonschema.RootSchema {
+func (db *ForensicStore) Schemas() []*jsonschema.RootSchema {
 	return db.schemas.values()
 }
