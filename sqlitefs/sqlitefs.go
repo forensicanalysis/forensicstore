@@ -16,7 +16,7 @@ type FS struct {
 	cursor *sqlite.Conn
 }
 
-var table = `CREATE TABLE IF NOT EXISTS sqlar(
+const table = `CREATE TABLE IF NOT EXISTS sqlar(
   name TEXT PRIMARY KEY,  -- name of the file
   mode INT,               -- access permissions
   mtime INT,              -- last modification time
@@ -75,14 +75,14 @@ func (fs *FS) Mkdir(name string, perm os.FileMode) error {
 
 func (fs *FS) MkdirAll(p string, perm os.FileMode) error {
 	p = normalizeFilename(p)
-	fs.Mkdir("/", perm)
+	_ = fs.Mkdir("/", perm)
 	all := ""
 	parts := strings.Split(p, "/")
 	for _, part := range parts {
 		all = path.Join(all, part)
-		fs.Mkdir(all, perm) // TODO
+		_ = fs.Mkdir(all, perm)
 	}
-	return nil // TODO
+	return nil
 }
 
 func (fs *FS) Name() string {
@@ -97,19 +97,12 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 	name = normalizeFilename(name)
 
 	var id int64
+	var err error
 	if flag&os.O_CREATE != 0 {
-		stmt := fs.cursor.Prep(`INSERT INTO sqlar (name, mode, mtime, sz) VALUES ($name, $mode, $mtime, $sz)`)
-
-		stmt.SetText("$name", name)
-		stmt.SetInt64("$mode", int64(perm))
-		stmt.SetInt64("$mtime", time.Now().Unix())
-		stmt.SetInt64("$sz", 0)
-
-		err := exec(stmt)
+		id, err = fs.createFile(name, perm)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create %s: %w", name, err)
+			return nil, err
 		}
-		id = fs.cursor.LastInsertRowID()
 	} else {
 		stmt := fs.cursor.Prep(`SELECT rowid, mode, mtime, sz, CASE WHEN data IS NULL THEN 'TRUE' ELSE 'FALSE' END dataNull FROM sqlar WHERE name = $name`)
 
@@ -130,7 +123,7 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 			sz:    size,
 			mode:  os.FileMode(stmt.GetInt64("mode")),
 			mtime: time.Unix(stmt.GetInt64("mtime"), 0),
-			dir:   size == 0 && stmt.GetText("dataNull") == "TRUE",
+			dir:   size == 0 && stmt.GetText("dataNull") == "TRUE", //nolint:goconst
 		}
 
 		err = stmt.Reset()
@@ -141,49 +134,67 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 		// directory
 		var children []os.FileInfo
 		if info.dir {
-			stmt = fs.cursor.Prep(`SELECT name, mode, mtime, sz, CASE WHEN data IS NULL THEN 'TRUE' ELSE 'FALSE' END dataNull FROM sqlar WHERE name LIKE $name`)
-			if name == "/" {
-				stmt.SetText("$name", "/%")
-			} else {
-				stmt.SetText("$name", name+"/%")
-			}
-
-			for {
-				hasChildRow, err := stmt.Step()
-				if err != nil {
-					return nil, err
-				} else if !hasChildRow {
-					break
-				}
-				childName := stmt.GetText("name")
-				if childName == name || strings.Contains(strings.Trim(childName[len(name):], "/"), "/") {
-					continue
-				}
-
-				childSize := stmt.GetInt64("sz")
-				children = append(children, &Info{
-					name:  path.Base(childName),
-					sz:    childSize,
-					mode:  os.FileMode(stmt.GetInt64("mode")),
-					mtime: time.Unix(stmt.GetInt64("mtime"), 0),
-					dir:   childSize == 0 && stmt.GetText("dataNull") == "TRUE",
-				})
-
-			}
-
-			err = stmt.Finalize()
+			children, err = fs.selectChildren(name, children)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		return NewReadItem(fs, id, name, info, children)
+		return newReadItem(fs, id, name, info, children)
 	}
 
 	if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
-		return NewWriteItem(fs, id, name)
+		return newWriteItem(fs, id, name)
 	}
 	return nil, ErrNotImplemented
+}
+
+func (fs *FS) selectChildren(name string, children []os.FileInfo) ([]os.FileInfo, error) {
+	stmt := fs.cursor.Prep(`SELECT name, mode, mtime, sz, CASE WHEN data IS NULL THEN 'TRUE' ELSE 'FALSE' END dataNull FROM sqlar WHERE name LIKE $name`)
+	if name == "/" {
+		stmt.SetText("$name", "/%")
+	} else {
+		stmt.SetText("$name", name+"/%")
+	}
+
+	for {
+		hasChildRow, err := stmt.Step()
+		if err != nil {
+			return nil, err
+		} else if !hasChildRow {
+			break
+		}
+		childName := stmt.GetText("name")
+		if childName == name || strings.Contains(strings.Trim(childName[len(name):], "/"), "/") {
+			continue
+		}
+
+		childSize := stmt.GetInt64("sz")
+		children = append(children, &Info{
+			name:  path.Base(childName),
+			sz:    childSize,
+			mode:  os.FileMode(stmt.GetInt64("mode")),
+			mtime: time.Unix(stmt.GetInt64("mtime"), 0),
+			dir:   childSize == 0 && stmt.GetText("dataNull") == "TRUE",
+		})
+	}
+
+	return children, stmt.Finalize()
+}
+
+func (fs *FS) createFile(name string, perm os.FileMode) (int64, error) {
+	stmt := fs.cursor.Prep(`INSERT INTO sqlar (name, mode, mtime, sz) VALUES ($name, $mode, $mtime, $sz)`)
+
+	stmt.SetText("$name", name)
+	stmt.SetInt64("$mode", int64(perm))
+	stmt.SetInt64("$mtime", time.Now().Unix())
+	stmt.SetInt64("$sz", 0)
+
+	err := exec(stmt)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create %s: %w", name, err)
+	}
+	return fs.cursor.LastInsertRowID(), nil
 }
 
 func (fs *FS) Remove(name string) error {
@@ -242,11 +253,11 @@ func (fs *FS) Close() error {
 }
 
 type Info struct {
-	name  string
 	sz    int64
-	mode  os.FileMode
 	mtime time.Time
+	mode  os.FileMode
 	dir   bool
+	name  string
 }
 
 func (i *Info) Name() string { // base name of the file

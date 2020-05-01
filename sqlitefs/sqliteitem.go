@@ -29,7 +29,7 @@ type item struct {
 	size   int64
 }
 
-func NewWriteItem(fs *FS, id int64, path string) (*item, error) {
+func newWriteItem(fs *FS, id int64, path string) (*item, error) {
 	i := &item{fs: fs, id: id, path: path, buf: &bytes.Buffer{}}
 
 	var err error
@@ -39,7 +39,7 @@ func NewWriteItem(fs *FS, id int64, path string) (*item, error) {
 	return i, err
 }
 
-func NewReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.FileInfo) (*item, error) {
+func newReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.FileInfo) (*item, error) {
 	i := &item{fs: fs, path: path, info: info, children: children}
 
 	if !info.IsDir() {

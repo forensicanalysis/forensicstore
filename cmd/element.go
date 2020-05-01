@@ -34,7 +34,7 @@ func getCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id> <forensicstore>",
 		Short: "Retrieve a single element",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
@@ -58,7 +58,7 @@ func selectCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "select <type> <forensicstore>",
 		Short: "Retrieve a list of all elements of a specific type",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			elementType := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
@@ -82,7 +82,7 @@ func allCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "all <forensicstore>",
 		Short: "Retrieve all elements",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 			store, err := forensicstore.Open(storeName)
@@ -105,7 +105,7 @@ func insertCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "insert <json> <forensicstore>",
 		Short: "Insert an element",
-		Args: cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonData := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]

@@ -49,7 +49,7 @@ func Create() *cobra.Command {
 	}
 }
 
-// Element is the forensicstore element commandline subcommand
+// Element is the forensicstore element commandline subcommand.
 func Element() *cobra.Command {
 	elementCommand := &cobra.Command{
 		Use:   "element",

@@ -27,13 +27,13 @@ func TestNewReadItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewReadItem(tt.args.fs, tt.args.id, tt.args.path, tt.args.info, tt.args.children)
+			got, err := newReadItem(tt.args.fs, tt.args.id, tt.args.path, tt.args.info, tt.args.children)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewReadItem() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("newReadItem() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewReadItem() got = %v, want %v", got, tt.want)
+				t.Errorf("newReadItem() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -55,13 +55,13 @@ func TestNewWriteItem(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewWriteItem(tt.args.fs, tt.args.id, tt.args.path)
+			got, err := newWriteItem(tt.args.fs, tt.args.id, tt.args.path)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("NewWriteItem() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("newWriteItem() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewWriteItem() got = %v, want %v", got, tt.want)
+				t.Errorf("newWriteItem() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

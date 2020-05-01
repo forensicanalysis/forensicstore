@@ -118,7 +118,7 @@ func setPragma(conn *sqlite.Conn, name string, i int64) error {
 	return stmt.Finalize()
 }
 
-func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
+func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,funlen,gocognit
 	url = strings.TrimRight(url, "/")
 
 	exists := true
@@ -140,7 +140,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 	store := &ForensicStore{}
 
 	if create {
-		err = os.MkdirAll(path.Dir(url), 0755)
+		err = os.MkdirAll(path.Dir(url), 0750)
 		if err != nil {
 			return nil, err
 		}
@@ -264,7 +264,7 @@ func (store *ForensicStore) Insert(elem Element) (string, error) {
 }
 
 // InsertBatch adds a set of elements. All elements must have the same fields.
-func (store *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo
+func (store *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo,funlen
 	if len(elements) == 0 {
 		return nil, nil
 	}
@@ -508,7 +508,7 @@ func (store *ForensicStore) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (store *ForensicStore) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo
+func (store *ForensicStore) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo,funlen,gocognit
 	flaws = []string{}
 	elementExpectedFiles = []string{}
 
@@ -602,8 +602,8 @@ func (store *ForensicStore) validateElementSchema(element Element) (flaws []stri
 	rootSchema.Validate("/", i, &errs)
 	for _, err := range errs {
 		id := ""
-		if id, ok := element["id"]; ok {
-			id = " " + id.(string)
+		if eid, ok := element["id"]; ok {
+			id = " " + eid.(string)
 		}
 
 		flaws = append(flaws, errors.Wrap(err, "failed to validate element"+id+" "+fmt.Sprintf("%#v", i)).Error())
@@ -680,20 +680,13 @@ func (store *ForensicStore) All() (elements []Element, err error) {
 /* ################################
 #   Intern
 ################################ */
+
 func (store *ForensicStore) rowsToElements(stmt *sqlite.Stmt) (elements []Element, err error) {
 	colCount := stmt.ColumnCount()
 
 	elements = []Element{}
 
 	for {
-		// Create a slice of interface{}'s to represent each column,
-		// and a second slice to contain pointers to each element in the columns slice.
-		columns := make([]interface{}, colCount)
-		columnPointers := make([]interface{}, colCount)
-		for i := range columns {
-			columnPointers[i] = &columns[i]
-		}
-
 		if hasRow, err := stmt.Step(); err != nil {
 			return nil, err
 		} else if !hasRow {
@@ -762,7 +755,10 @@ func (store *ForensicStore) getTables() (map[string]map[string]string, error) {
 			columnType := pragmaStmt.GetText("type")
 			tables[name][columnName] = columnType
 		}
-		pragmaStmt.Finalize()
+		err = pragmaStmt.Finalize()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return tables, stmt.Finalize()
