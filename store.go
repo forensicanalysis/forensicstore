@@ -477,7 +477,7 @@ func (store *ForensicStore) Validate() (flaws []string, err error) {
 	var additionalFiles []string
 	err = afero.Walk(store, "/", func(path string, info os.FileInfo, err error) error {
 		path = filepath.ToSlash(path)
-		if info.IsDir() {
+		if info == nil || info.IsDir() {
 			return nil
 		}
 

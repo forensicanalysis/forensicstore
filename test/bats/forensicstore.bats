@@ -36,7 +36,7 @@ teardown() {
   [ "$status" -eq 0 ]
   forensicstore validate $TESTDIR/init_create.forensicstore
 
-  [ -f "$TESTDIR/init_create.forensicstore/element.db" ]
+  [ -f "$TESTDIR/init_create.forensicstore" ]
 }
 
 @test "jsonlite load not existing" {
@@ -49,7 +49,7 @@ teardown() {
 @test "jsonlite get" {
     forensicstore element get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 test/forensicstore/example2.forensicstore > $TESTDIR/a.json
 
-    echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": [ "-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+    echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "iptables", "created_time": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
     echo "a"
     run cat $TESTDIR/a.json
@@ -82,7 +82,7 @@ teardown() {
     forensicstore element all test/forensicstore/example2.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
-    [ "$output" = '8' ]
+    [ "$output" = '7' ]
 }
 
 @test "jsonlite insert" {
@@ -98,7 +98,7 @@ teardown() {
     forensicstore element all $TESTDIR/example2.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '8' ]
 
     # verify inserted element with id
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
@@ -121,7 +121,7 @@ teardown() {
     forensicstore element all $TESTDIR/example2.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '10' ]
+    [ "$output" = '9' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
@@ -151,7 +151,7 @@ teardown() {
     forensicstore element all $TESTDIR/example2.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '8' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
@@ -172,7 +172,7 @@ teardown() {
     forensicstore element all $TESTDIR/example2.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '8' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
@@ -193,7 +193,7 @@ teardown() {
     forensicstore element all $TESTDIR/example2.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '8' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
@@ -219,7 +219,7 @@ teardown() {
 
 #     forensicstore element get process--920d7c41-0fef-4cf8-bce2-ead120f6b506 $TESTDIR/example2.forensicstore > $TESTDIR/a.json
 
-#     echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "arguments": ["-L", "-n", "-v" ], "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
+#     echo '{"id": "process--920d7c41-0fef-4cf8-bce2-ead120f6b506", "artifact": "IPTablesRules", "type": "process", "name": "foo", "created_time": "2016-01-20T14:11:25.550Z", "cwd": "/root/", "command_line": "/sbin/iptables -L -n -v", "stdout_path": "IPTablesRules/stdout", "stderr_path": "IPTablesRules/stderr", "return_code": 0}' > $TESTDIR/b.json
 
 #     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
 #     [ "$status" -eq 0 ]

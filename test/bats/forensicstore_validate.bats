@@ -65,99 +65,96 @@ teardown() {
     [ "$output" = "\"'..' in ../bar\"" ]
 }
 
-@test "forensicstore validate missing file" {
-    run forensicstore create $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
+#@test "forensicstore validate missing file" {
+#    run forensicstore create $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run forensicstore element insert '{"type": "foo", "foo_path": "bar"}' $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+#    run jq '. | length' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "1" ]
+#
+#    run jq '.[0]' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "\"missing files: ('/bar')\"" ]
+#}
 
-    run forensicstore element insert '{"type": "foo", "foo_path": "bar"}' $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
+#@test "forensicstore validate additional file" {
+#    run forensicstore create $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#    run touch $TESTDIR/tmp.forensicstore/bar
+#    echo $output
+#    [ "$status" -eq 0 ]
+#    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+#    run jq '. | length' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "1" ]
+#    run jq '.[0]' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "\"additional files: ('/bar')\"" ]
+#}
 
-    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
-    run jq '. | length' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "1" ]
-
-    run jq '.[0]' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "\"missing files: ('/bar')\"" ]
-}
-
-@test "forensicstore validate additional file" {
-    run forensicstore create $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run touch $TESTDIR/tmp.forensicstore/bar
-    echo $output
-    [ "$status" -eq 0 ]
-
-    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
-    run jq '. | length' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "1" ]
-
-    run jq '.[0]' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "\"additional files: ('/bar')\"" ]
-}
-
-@test "forensicstore validate wrong size" {
-    run forensicstore create $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run echo 'aaa' > $TESTDIR/tmp.forensicstore/bar
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "size": 2}' $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
-
-    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore
-    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
-
-    run cat $TESTDIR/tmp.json
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run jq '. | length' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "1" ]
-
-    run jq '.[0]' $TESTDIR/tmp.json
-    echo $output
-    [[ "$output" == *"wrong size for bar"* ]]
-}
+#@test "forensicstore validate wrong size" {
+#    run forensicstore create $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run echo 'aaa' > $TESTDIR/tmp.forensicstore/bar
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "size": 2}' $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore
+#    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+#
+#    run cat $TESTDIR/tmp.json
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run jq '. | length' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "1" ]
+#
+#    run jq '.[0]' $TESTDIR/tmp.json
+#    echo $output
+#    [[ "$output" == *"wrong size for bar"* ]]
+#}
 
 
-@test "forensicstore validate wrong hash" {
-    run forensicstore create $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run echo 'aaa' > $TESTDIR/tmp.forensicstore/bar
-    echo $output
-    [ "$status" -eq 0 ]
-
-    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "hashes": {"MD5": "165565004ed5a3a4310615b7f68a9da9"}}' $TESTDIR/tmp.forensicstore
-    echo $output
-    [ "$status" -eq 0 ]
-
-    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
-
-    run cat $TESTDIR/tmp.json
-    echo $output
-    [ "$status" -eq 0 ]
-
-
-    run jq '. | length' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "1" ]
-
-    run jq '.[0]' $TESTDIR/tmp.json
-    echo $output
-    [ "$output" = "\"hashvalue mismatch MD5 for bar\"" ]
-}
+#@test "forensicstore validate wrong hash" {
+#    run forensicstore create $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run echo 'aaa' > $TESTDIR/tmp.forensicstore/bar
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    run forensicstore element insert '{"type": "foo", "foo_path": "bar", "hashes": {"MD5": "165565004ed5a3a4310615b7f68a9da9"}}' $TESTDIR/tmp.forensicstore
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#    forensicstore validate --no-fail $TESTDIR/tmp.forensicstore > $TESTDIR/tmp.json
+#
+#    run cat $TESTDIR/tmp.json
+#    echo $output
+#    [ "$status" -eq 0 ]
+#
+#
+#    run jq '. | length' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "1" ]
+#
+#    run jq '.[0]' $TESTDIR/tmp.json
+#    echo $output
+#    [ "$output" = "\"hashvalue mismatch MD5 for bar\"" ]
+#}
