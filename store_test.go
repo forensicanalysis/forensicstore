@@ -29,7 +29,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,16 +85,9 @@ func copyFile(t *testing.T, src, dst string) {
 	}
 }
 
-func teardown(t *testing.T) {
-	files, err := ioutil.ReadDir(os.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	for _, f := range files {
-		if strings.HasPrefix(f.Name(), t.Name()) {
-			os.Remove(f.Name())
-		}
+func teardown(t *testing.T, dirs ...string) {
+	for _, dir := range dirs {
+		os.RemoveAll(dir)
 	}
 }
 
@@ -137,7 +129,7 @@ func TestStore_Insert(t *testing.T) {
 	bau := Element{"name": "bau", "type": "ba", "list": nil}
 
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -178,7 +170,7 @@ func TestStore_Insert(t *testing.T) {
 
 func TestForensicStore_InsertStruct(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	myfile := NewFile()
 	myfile.Name = "test.txt"
@@ -221,7 +213,7 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 
 func TestStore_Get(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -247,7 +239,6 @@ func TestStore_Get(t *testing.T) {
 			}
 			defer store.Close()
 
-			// defer os.Remove(tt.fields.url)
 			gotElement, err := store.Get(tt.args.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.Get() error = %v, wantErr %v", err, tt.wantErr)
@@ -260,7 +251,7 @@ func TestStore_Get(t *testing.T) {
 
 func TestStore_QueryStore(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -285,7 +276,6 @@ func TestStore_QueryStore(t *testing.T) {
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			gotElements, err := store.Query(tt.args.query)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.Query() error = %v, wantErr %v", err, tt.wantErr)
@@ -298,7 +288,7 @@ func TestStore_QueryStore(t *testing.T) {
 
 func TestStore_Select(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -322,11 +312,10 @@ func TestStore_Select(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store, err := Open(tt.fields.url)
 			if err != nil || store == nil {
-				t.Fatalf("Database could not be created %v\n", err)
+				t.Fatalf("Database %s could not be created %v\n", tt.fields.url, err)
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			gotElements, err := store.Select(tt.args.elementType, tt.args.conditions)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.Select() error = %v, wantErr %v", err, tt.wantErr)
@@ -340,7 +329,7 @@ func TestStore_Select(t *testing.T) {
 
 func TestStore_All(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -361,7 +350,6 @@ func TestStore_All(t *testing.T) {
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			gotElements, err := store.All()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.All() error = %v, wantErr %v", err, tt.wantErr)
@@ -375,7 +363,7 @@ func TestStore_All(t *testing.T) {
 
 func TestStore_getTables(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	expectedTables := map[string]map[string]string{
 		"directory":            {"atime": "TEXT", "artifact": "TEXT", "ctime": "TEXT", "mtime": "TEXT", "path": "TEXT", "type": "TEXT", "id": "TEXT"},
@@ -403,7 +391,6 @@ func TestStore_getTables(t *testing.T) {
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			got, err := store.getTables()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.getTables() error = %v, wantErr %v", err, tt.wantErr)
@@ -418,7 +405,7 @@ func TestStore_getTables(t *testing.T) {
 
 func TestStore_ensureTable(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -443,7 +430,6 @@ func TestStore_ensureTable(t *testing.T) {
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			if err := store.ensureTable(tt.args.flatElement, tt.args.element); (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.ensureTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -453,7 +439,7 @@ func TestStore_ensureTable(t *testing.T) {
 
 func TestStore_createTable(t *testing.T) {
 	testDir := setup(t)
-	defer teardown(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -477,7 +463,6 @@ func TestStore_createTable(t *testing.T) {
 			}
 			defer store.Close()
 
-			defer os.Remove(tt.fields.url)
 			if err := store.createTable(tt.args.flatElement); (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.createTable() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -508,6 +493,7 @@ func Test_getSQLDataType(t *testing.T) {
 
 func TestStore_Validate(t *testing.T) {
 	testDir := setup(t)
+	defer teardown(t, testDir)
 
 	type fields struct {
 		url string
@@ -527,8 +513,6 @@ func TestStore_Validate(t *testing.T) {
 				t.Fatalf("Database could not be created %v\n", err)
 			}
 			defer store.Close()
-
-			defer os.Remove(tt.fields.url)
 
 			gotE, err := store.Validate()
 			if (err != nil) != tt.wantErr {

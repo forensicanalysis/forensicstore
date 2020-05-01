@@ -35,11 +35,12 @@ import (
 // Create is the forensicstore create commandline subcommand
 func Create() *cobra.Command {
 	return &cobra.Command{
-		Use:   "create",
+		Use:   "create <forensicstore>",
 		Short: "Create a forensicstore",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
@@ -56,7 +57,7 @@ func Element() *cobra.Command {
 		Args:  requireOneStore,
 	}
 	elementCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
-		insertCommand(), updateCommand())
+		insertCommand())
 	return elementCommand
 }
 
@@ -64,12 +65,13 @@ func Element() *cobra.Command {
 func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{
-		Use:   "validate",
+		Use:   "validate <forensicstore>",
 		Short: "Validate all elements",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err
@@ -96,32 +98,6 @@ func Validate() *cobra.Command {
 	validateCommand.Flags().BoolVar(&noFail, "no-fail", false, "return exit code 0")
 	return validateCommand
 }
-
-/*
-func serveCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:     "serve",
-		Aliases: []string{"server", "http"},
-		Short:   "Run a http(s) API and serve the forensicstore",
-		Args:    requireOneStore,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("serve called")
-		},
-	}
-}
-
-func uiCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:     "ui",
-		Aliases: []string{"show"},
-		Short:   "Start the forensicstore desktop app",
-		Args:    requireOneStore,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println("ui called")
-		},
-	}
-}
-*/
 
 func requireOneStore(_ *cobra.Command, args []string) error {
 	if len(args) != 1 {

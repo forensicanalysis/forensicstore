@@ -49,6 +49,9 @@ import (
 	"github.com/forensicanalysis/stixgo"
 )
 
+const forensicstoreVersion = 2
+const elementaryApplicationID = 1701602669
+
 const (
 	// integer represents the SQL INTEGER type
 	integer = "INTEGER"
@@ -87,6 +90,31 @@ func New(url string) (*ForensicStore, error) { // nolint:gocyclo
 // Open opens an existing Forensicstore.
 func Open(url string) (*ForensicStore, error) { // nolint:gocyclo
 	return open(url, false)
+}
+
+func pragma(conn *sqlite.Conn, name string) (int64, error) {
+	stmt, err := conn.Prepare("PRAGMA " + name)
+	if err != nil {
+		return 0, err
+	}
+	_, err = stmt.Step()
+	if err != nil {
+		return 0, err
+	}
+	i := stmt.GetInt64(name)
+	return i, stmt.Finalize()
+}
+
+func setPragma(conn *sqlite.Conn, name string, i int64) error {
+	stmt, err := conn.Prepare("PRAGMA " + name + " = " + fmt.Sprint(i))
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Step()
+	if err != nil {
+		return err
+	}
+	return stmt.Finalize()
 }
 
 func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
@@ -132,6 +160,36 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 	store.cursor, err = sqlite.OpenConn(url, 0)
 	if err != nil {
 		return nil, err
+	}
+
+	if create {
+		err = setPragma(store.cursor, "application_id", elementaryApplicationID)
+		if err != nil {
+			return nil, err
+		}
+
+		err = setPragma(store.cursor, "user_version", forensicstoreVersion)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		applicationID, err := pragma(store.cursor, "application_id")
+		if err != nil {
+			return nil, err
+		}
+		if applicationID != elementaryApplicationID {
+			msg := "wrong file format (application_id is %d, requires %d)"
+			return nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
+		}
+
+		version, err := pragma(store.cursor, "user_version")
+		if err != nil {
+			return nil, err
+		}
+		if version != forensicstoreVersion {
+			msg := "wrong file format (user_version is %d, requires %d)"
+			return nil, fmt.Errorf(msg, version, forensicstoreVersion)
+		}
 	}
 
 	store.schemas = newSchemaMap()
