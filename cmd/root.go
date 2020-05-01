@@ -40,7 +40,7 @@ func Create() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := forensicstore.Open(storeName)
+			store, err := forensicstore.New(storeName)
 			if err != nil {
 				return err
 			}
