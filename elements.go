@@ -49,7 +49,7 @@ type File struct {
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
 }
 
-// NewFile creates a new STIX 2.1 File Object
+// NewFile creates a new STIX 2.1 File Object.
 func NewFile() *File {
 	return &File{ID: "file--" + uuid.New().String(), Type: "file"}
 }
@@ -61,7 +61,7 @@ func (i *File) AddError(err string) *File {
 	return i
 }
 
-// Directory implements a STIX 2.1 Directory Object
+// Directory implements a STIX 2.1 Directory Object.
 type Directory struct {
 	ID       string        `json:"id"`
 	Artifact string        `json:"artifact,omitempty"`
@@ -73,7 +73,7 @@ type Directory struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
-// NewDirectory creates a new STIX 2.1 Directory Object
+// NewDirectory creates a new STIX 2.1 Directory Object.
 func NewDirectory() *Directory {
 	return &Directory{ID: "directory--" + uuid.New().String(), Type: "directory"}
 }
@@ -85,7 +85,7 @@ func (i *Directory) AddError(err string) *Directory {
 	return i
 }
 
-// RegistryValue implements a STIX 2.1 Windows™ Registry Value Type
+// RegistryValue implements a STIX 2.1 Windows™ Registry Value Type.
 type RegistryValue struct {
 	Name     string        `json:"name"`
 	Data     string        `json:"data,omitempty"`
@@ -93,7 +93,7 @@ type RegistryValue struct {
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
-// NewRegistryValue creates a new STIX 2.1 Windows™ Registry Value Type
+// NewRegistryValue creates a new STIX 2.1 Windows™ Registry Value Type.
 func NewRegistryValue() *RegistryValue {
 	return &RegistryValue{}
 }
@@ -105,7 +105,7 @@ func (i *RegistryValue) AddError(err string) *RegistryValue {
 	return i
 }
 
-// RegistryKey implements a STIX 2.1 Windows™ Registry Key Object
+// RegistryKey implements a STIX 2.1 Windows™ Registry Key Object.
 type RegistryKey struct {
 	ID           string          `json:"id"`
 	Artifact     string          `json:"artifact,omitempty"`
@@ -116,7 +116,7 @@ type RegistryKey struct {
 	Errors       []interface{}   `json:"errors,omitempty"`
 }
 
-// NewRegistryKey creates a new STIX 2.1 Windows™ Registry Key Object
+// NewRegistryKey creates a new STIX 2.1 Windows™ Registry Key Object.
 func NewRegistryKey() *RegistryKey {
 	return &RegistryKey{ID: "windows-registry-key--" + uuid.New().String(), Type: "windows-registry-key"}
 }
@@ -144,7 +144,7 @@ type Process struct {
 	Errors      []interface{} `json:"errors,omitempty"`
 }
 
-// NewProcess creates a new STIX 2.1 Process Object
+// NewProcess creates a new STIX 2.1 Process Object.
 func NewProcess() *Process {
 	return &Process{ID: "process--" + uuid.New().String(), Type: "process"}
 }

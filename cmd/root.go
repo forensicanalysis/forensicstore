@@ -32,12 +32,12 @@ import (
 	"github.com/forensicanalysis/forensicstore"
 )
 
-// Create is the forensicstore create commandline subcommand
+// Create is the forensicstore create commandline subcommand.
 func Create() *cobra.Command {
 	return &cobra.Command{
 		Use:   "create <forensicstore>",
 		Short: "Create a forensicstore",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 			store, err := forensicstore.Open(storeName)
@@ -61,13 +61,13 @@ func Element() *cobra.Command {
 	return elementCommand
 }
 
-// Validate is the forensicstore validate commandline subcommand
+// Validate is the forensicstore validate commandline subcommand.
 func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{
 		Use:   "validate <forensicstore>",
 		Short: "Validate all elements",
-		Args: cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 

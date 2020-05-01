@@ -8,10 +8,6 @@
  <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore.svg?type=shield"/></a>
 </p>
 
-
-![](docs/forensicstore.png)
-
-
 The forensicstore project can create,
 access and process forensic artifacts bundled in so called forensicstores
 (a database for metadata and subfolders with forensic artifacts).

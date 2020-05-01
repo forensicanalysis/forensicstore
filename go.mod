@@ -8,7 +8,7 @@ require (
 	github.com/forensicanalysis/fslib v0.13.1
 	github.com/forensicanalysis/stixgo v0.1.0
 	github.com/google/uuid v1.1.1
-	github.com/iancoleman/strcase v0.0.0-20190422225806-e506e3ef7365
+	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
 	github.com/imdario/mergo v0.3.7
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.1.1

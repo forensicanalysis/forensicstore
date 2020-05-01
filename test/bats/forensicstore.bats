@@ -82,7 +82,7 @@ teardown() {
     forensicstore element all test/forensicstore/example1.forensicstore > $TESTDIR/all.json
 
     run jq '. | length' $TESTDIR/all.json
-    [ "$output" = '7' ]
+    [ "$output" = '8' ]
 }
 
 @test "jsonlite insert" {
@@ -98,7 +98,7 @@ teardown() {
     forensicstore element all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted element with id
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -121,7 +121,7 @@ teardown() {
     forensicstore element all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '9' ]
+    [ "$output" = '10' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -151,7 +151,7 @@ teardown() {
     forensicstore element all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -172,7 +172,7 @@ teardown() {
     forensicstore element all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
@@ -193,7 +193,7 @@ teardown() {
     forensicstore element all $TESTDIR/example1.forensicstore > $TESTDIR/all.json
     run jq '. | length' $TESTDIR/all.json
     [ "$status" -eq 0 ]
-    [ "$output" = '8' ]
+    [ "$output" = '9' ]
 
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
