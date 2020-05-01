@@ -8,37 +8,13 @@
  <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore.svg?type=shield"/></a>
 </p>
 
-
-![](docs/forensicstore.png)
-
-
 The forensicstore project can create,
 access and process forensic artifacts bundled in so called forensicstores
 (a database for metadata and subfolders with forensic artifacts).
 
-## The forensicstore format
-The forensicstore format implements the following conventions:
 
-- The forensicstore is a folder containing an item.db file and an arbitrary number of other folders.
-- The item.db file contains metadata for all extracted artifacts in a forensic investigation in jsonlite format (flattened json objects in a sqlite database).
-- Items are represented as json objects.
-- Items are valid STIX 2.0 Observable Objects where applicable.
-- Items must not have dots (".") in their json keys.
-- Files stored in the forensicstore are referenced by item attributes ending in _path, e.g. export_path, stdout_path and wmi_path.
-- Any item stored in the forensicstore can have an errors attribute that contains errors that are related to retrival or processing of this item.
-## Structure
-An example directory structure for a forensicstore:
+Package forensicstore provides functions to handle forensicstores.
 
-```
-example.forensicstore/
-├── ChromeCache
-│   ├── 0003357376fd75df_0
-│   └── ...
-├── ChromeHistory
-│   └── History
-├── ...
-└── item.db
-```
 
 
 
@@ -59,12 +35,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
+	"github.com/forensicanalysis/forensicstore"
 )
 
 func main() {
 	// create forensicstore
-	store, _ := goforensicstore.NewJSONLite("example.forensicstore")
+	store, _ := forensicstore.New("example.forensicstore")
+	defer store.Close()
 
 	// create a struct
 	evidence := struct {
@@ -75,11 +52,11 @@ func main() {
 	// insert struct into forensicstore
 	id, _ := store.InsertStruct(evidence)
 
-	// get item from forensicstore
-	item, _ := store.Get(id)
+	// get element from forensicstore
+	element, _ := store.Get(id)
 
-	// access item's data
-	fmt.Println(item["data"])
+	// access element's data
+	fmt.Println(element["data"])
 }
 
 ```

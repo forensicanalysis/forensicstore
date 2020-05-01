@@ -1,25 +1,27 @@
-// Copyright (c) 2019 Siemens AG
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy of
-// this software and associated documentation files (the "Software"), to deal in
-// the Software without restriction, including without limitation the rights to
-// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-// the Software, and to permit persons to whom the Software is furnished to do so,
-// subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in all
-// copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-// COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-// IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-// CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-//
-// Author(s): Jonas Plum
+/*
+ * Copyright (c) 2020 Siemens AG
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Author(s): Jonas Plum
+ */
 
-package goforensicstore
+package forensicstore
 
 import (
 	"log"
@@ -27,7 +29,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// File implements a STIX 2.1 File Object.
+// Element is a single entry in the database.
+type Element map[string]interface{}
+
+// File implements a STIX 2.1 File Object
 type File struct {
 	ID         string                 `json:"id"`
 	Artifact   string                 `json:"artifact,omitempty"`
@@ -35,9 +40,9 @@ type File struct {
 	Hashes     map[string]interface{} `json:"hashes,omitempty"`
 	Size       float64                `json:"size,omitempty"`
 	Name       string                 `json:"name"`
-	Created    string                 `json:"created,omitempty"`
-	Modified   string                 `json:"modified,omitempty"`
-	Accessed   string                 `json:"accessed,omitempty"`
+	Ctime      string                 `json:"ctime,omitempty"`
+	Mtime      string                 `json:"mtime,omitempty"`
+	Atime      string                 `json:"atime,omitempty"`
 	Origin     map[string]interface{} `json:"origin,omitempty"`
 	ExportPath string                 `json:"export_path,omitempty"`
 	Errors     []interface{}          `json:"errors,omitempty"`
@@ -62,9 +67,9 @@ type Directory struct {
 	Artifact string        `json:"artifact,omitempty"`
 	Type     string        `json:"type"`
 	Path     string        `json:"path"`
-	Created  string        `json:"created,omitempty"`
-	Modified string        `json:"modified,omitempty"`
-	Accessed string        `json:"accessed,omitempty"`
+	Ctime    string        `json:"ctime,omitempty"`
+	Mtime    string        `json:"mtime,omitempty"`
+	Atime    string        `json:"atime,omitempty"`
 	Errors   []interface{} `json:"errors,omitempty"`
 }
 
@@ -102,13 +107,13 @@ func (i *RegistryValue) AddError(err string) *RegistryValue {
 
 // RegistryKey implements a STIX 2.1 Windows™ Registry Key Object.
 type RegistryKey struct {
-	ID       string          `json:"id"`
-	Artifact string          `json:"artifact,omitempty"`
-	Type     string          `json:"type"`
-	Key      string          `json:"key"`
-	Values   []RegistryValue `json:"values,omitempty"`
-	Modified string          `json:"modified,omitempty"`
-	Errors   []interface{}   `json:"errors,omitempty"`
+	ID           string          `json:"id"`
+	Artifact     string          `json:"artifact,omitempty"`
+	Type         string          `json:"type"`
+	Key          string          `json:"key"`
+	Values       []RegistryValue `json:"values,omitempty"`
+	ModifiedTime string          `json:"modified_time,omitempty"`
+	Errors       []interface{}   `json:"errors,omitempty"`
 }
 
 // NewRegistryKey creates a new STIX 2.1 Windows™ Registry Key Object.
@@ -129,9 +134,8 @@ type Process struct {
 	Artifact    string        `json:"artifact,omitempty"`
 	Type        string        `json:"type"`
 	Name        string        `json:"name,omitempty"`
-	Created     string        `json:"created,omitempty"`
+	CreatedTime string        `json:"created_time,omitempty"`
 	Cwd         string        `json:"cwd,omitempty"`
-	Arguments   []interface{} `json:"arguments,omitempty"`
 	CommandLine string        `json:"command_line,omitempty"`
 	StdoutPath  string        `json:"stdout_path,omitempty"`
 	StderrPath  string        `json:"stderr_path,omitempty"`

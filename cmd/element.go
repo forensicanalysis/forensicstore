@@ -23,31 +23,31 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
+	"github.com/forensicanalysis/forensicstore"
 )
 
 func getCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get",
-		Short: "Retrieve a single item",
+		Use:   "get <id> <forensicstore>",
+		Short: "Retrieve a single element",
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
 			defer store.Close()
-			item, err := store.Get(id)
+			element, err := store.Get(id)
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(item)
+			b, _ := json.Marshal(element)
 			fmt.Printf("%s\n", b)
 			return nil
 		},
@@ -56,21 +56,22 @@ func getCommand() *cobra.Command {
 
 func selectCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "select",
-		Short: "Retrieve a list of all items of a specific type",
+		Use:   "select <type> <forensicstore>",
+		Short: "Retrieve a list of all elements of a specific type",
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
-			itemType := cmd.Flags().Args()[0]
+			elementType := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
 			defer store.Close()
-			item, err := store.Select(itemType, nil)
+			element, err := store.Select(elementType, nil)
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(item)
+			b, _ := json.Marshal(element)
 			fmt.Printf("%s\n", b)
 			return nil
 		},
@@ -79,20 +80,21 @@ func selectCommand() *cobra.Command {
 
 func allCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "all",
-		Short: "Retrieve all items",
+		Use:   "all <forensicstore>",
+		Short: "Retrieve all elements",
+		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
 			defer store.Close()
-			item, err := store.All()
+			element, err := store.All()
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(item)
+			b, _ := json.Marshal(element)
 			fmt.Printf("%s\n", b)
 			return nil
 		},
@@ -101,50 +103,33 @@ func allCommand() *cobra.Command {
 
 func insertCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "insert",
-		Short: "Insert an item",
+		Use:   "insert <json> <forensicstore>",
+		Short: "Insert an element",
+		Args:  cobra.ExactArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonData := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := goforensicstore.NewJSONLite(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err
 			}
 			defer store.Close()
 
-			item := map[string]interface{}{}
-			err = json.Unmarshal([]byte(jsonData), &item)
+			element := map[string]interface{}{}
+			err = json.Unmarshal([]byte(jsonData), &element)
 			if err != nil {
 				fmt.Println(err)
 				return err
 			}
 
-			itemID, err := store.Insert(item)
+			elementID, err := store.Insert(element)
 			if err != nil {
 				fmt.Println(err)
 				return err
 			}
-			fmt.Printf("%s\n", itemID)
+			fmt.Printf("%s\n", elementID)
 			return nil
-		},
-	}
-}
-
-func updateCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "update",
-		Short: "Update a single item (not implemented)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// 	p.itemType = flag.Args()[1]
-			// 	p.id, _ = strconv.Atoi(flag.Args()[2])
-			// 	p.json = flag.Args()[3]
-			// 	p.store = flag.Args()[4]
-			// }
-			// func (p *updateCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-			// 	fmt.Printf("%s\n ", cmd.Flags().Args()) // TODO implement update
-			// 	return nil
-			return errors.New("not implemented")
 		},
 	}
 }

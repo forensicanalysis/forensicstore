@@ -24,12 +24,13 @@ package forensicstore_test
 import (
 	"fmt"
 
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
+	"github.com/forensicanalysis/forensicstore"
 )
 
 func Example() {
 	// create forensicstore
-	store, _ := goforensicstore.NewJSONLite("example.forensicstore")
+	store, _ := forensicstore.New("example.forensicstore")
+	defer store.Close()
 
 	// create a struct
 	evidence := struct {
@@ -40,10 +41,10 @@ func Example() {
 	// insert struct into forensicstore
 	id, _ := store.InsertStruct(evidence)
 
-	// get item from forensicstore
-	item, _ := store.Get(id)
+	// get element from forensicstore
+	element, _ := store.Get(id)
 
-	// access item's data
-	fmt.Println(item["data"])
+	// access element's data
+	fmt.Println(element["data"])
 	// Output: secret
 }
