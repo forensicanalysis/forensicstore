@@ -13,6 +13,11 @@ access and process forensic artifacts bundled in so called forensicstores
 (a database for metadata and subfolders with forensic artifacts).
 
 
+Package forensicstore provides functions to handle forensicstores.
+
+
+
+
 ### Installation
 
 
@@ -30,12 +35,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/forensicanalysis/forensicstore/goforensicstore"
+	"github.com/forensicanalysis/forensicstore"
 )
 
 func main() {
 	// create forensicstore
-	store, _ := goforensicstore.NewJSONLite("example.forensicstore")
+	store, _ := forensicstore.New("example.forensicstore")
+	defer store.Close()
 
 	// create a struct
 	evidence := struct {
