@@ -25,10 +25,10 @@
 package forensicstore
 
 import (
-	"github.com/qri-io/jsonschema"
 	"reflect"
 
 	"github.com/iancoleman/strcase"
+	"github.com/qri-io/jsonschema"
 )
 
 func walkJSON(elem jsonschema.JSONPather, fn func(elem jsonschema.JSONPather) error) error {

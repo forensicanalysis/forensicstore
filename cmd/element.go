@@ -23,7 +23,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -33,12 +32,13 @@ import (
 
 func getCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get",
+		Use:   "get <id> <forensicstore>",
 		Short: "Retrieve a single element",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
@@ -56,12 +56,13 @@ func getCommand() *cobra.Command {
 
 func selectCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "select",
+		Use:   "select <type> <forensicstore>",
 		Short: "Retrieve a list of all elements of a specific type",
+		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			elementType := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
@@ -79,11 +80,12 @@ func selectCommand() *cobra.Command {
 
 func allCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "all",
+		Use:   "all <forensicstore>",
 		Short: "Retrieve all elements",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
@@ -101,12 +103,13 @@ func allCommand() *cobra.Command {
 
 func insertCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "insert",
+		Use:   "insert <json> <forensicstore>",
 		Short: "Insert an element",
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonData := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.New(storeName)
+			store, err := forensicstore.Open(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err
@@ -127,24 +130,6 @@ func insertCommand() *cobra.Command {
 			}
 			fmt.Printf("%s\n", elementID)
 			return nil
-		},
-	}
-}
-
-func updateCommand() *cobra.Command {
-	return &cobra.Command{
-		Use:   "update",
-		Short: "Update a single element (not implemented)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// 	p.elementType = flag.Args()[1]
-			// 	p.id, _ = strconv.Atoi(flag.Args()[2])
-			// 	p.json = flag.Args()[3]
-			// 	p.store = flag.Args()[4]
-			// }
-			// func (p *updateCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-			// 	fmt.Printf("%s\n ", cmd.Flags().Args()) // TODO implement update
-			// 	return nil
-			return errors.New("not implemented")
 		},
 	}
 }

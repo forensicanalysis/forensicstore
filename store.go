@@ -26,7 +26,6 @@ package forensicstore
 import (
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"hash"
@@ -35,21 +34,24 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
 
+	"crawshaw.io/sqlite"
 	"github.com/fatih/structs"
 	"github.com/google/uuid"
-	_ "github.com/mattn/go-sqlite3" // Import sqlite3 driver
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
 	"github.com/spf13/afero"
 
 	"github.com/forensicanalysis/forensicstore/goflatten"
+	"github.com/forensicanalysis/forensicstore/sqlitefs"
 	"github.com/forensicanalysis/stixgo"
 )
+
+const forensicstoreVersion = 2
+const elementaryApplicationID = 1701602669
 
 const (
 	// integer represents the SQL INTEGER type
@@ -72,17 +74,14 @@ const discriminator = "type"
 // from the forensicstore.
 type ForensicStore struct {
 	afero.Fs
-	NewDB       bool
-	storeFolder string
-	cursor      *sql.DB
-	sqlMutex    sync.RWMutex
-	fileMutex   sync.RWMutex
+	cursor      *sqlite.Conn
 	tables      *tableMap
 	schemas     *schemaMap
+	columnMutex sync.Mutex
 }
 
-var ErrStoreExists = fmt.Errorf("store already exists: %w", os.ErrExist)
-var ErrStoreNotExists = fmt.Errorf("store does not exist: %w", os.ErrNotExist)
+var ErrStoreExists = fmt.Errorf("store already exists")
+var ErrStoreNotExists = fmt.Errorf("store does not exist")
 
 // New creates a new Forensicstore.
 func New(url string) (*ForensicStore, error) { // nolint:gocyclo
@@ -94,19 +93,43 @@ func Open(url string) (*ForensicStore, error) { // nolint:gocyclo
 	return open(url, false)
 }
 
+func pragma(conn *sqlite.Conn, name string) (int64, error) {
+	stmt, err := conn.Prepare("PRAGMA " + name)
+	if err != nil {
+		return 0, err
+	}
+	_, err = stmt.Step()
+	if err != nil {
+		return 0, err
+	}
+	i := stmt.GetInt64(name)
+	return i, stmt.Finalize()
+}
+
+func setPragma(conn *sqlite.Conn, name string, i int64) error {
+	stmt, err := conn.Prepare("PRAGMA " + name + " = " + fmt.Sprint(i))
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Step()
+	if err != nil {
+		return err
+	}
+	return stmt.Finalize()
+}
+
 func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 	url = strings.TrimRight(url, "/")
 
-	db := &ForensicStore{
-		Fs:          afero.NewOsFs(),
-		storeFolder: url,
+	exists := true
+	_, err := os.Stat(url)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+		exists = false
 	}
 
-	dbFile := filepath.Join(url, "element.db")
-	exists, err := afero.Exists(db, dbFile)
-	if err != nil {
-		return nil, err
-	}
 	if create && exists {
 		return nil, ErrStoreExists
 	}
@@ -114,34 +137,72 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 		return nil, ErrStoreNotExists
 	}
 
+	store := &ForensicStore{}
+
 	if create {
-		err = db.MkdirAll(db.storeFolder, 0755)
+		err = os.MkdirAll(path.Dir(url), 0755)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Printf("Creating store %s", db.storeFolder)
-		_, err := db.Create(dbFile)
+		log.Printf("Creating store %s", url)
+		_, err := os.Create(url)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	db.cursor, err = sql.Open("sqlite3", dbFile)
+	fs, err := sqlitefs.New(url)
+	if err != nil {
+		return nil, err
+	}
+	store.Fs = fs
+
+	store.cursor, err = sqlite.OpenConn(url, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	db.schemas = newSchemaMap()
+	if create {
+		err = setPragma(store.cursor, "application_id", elementaryApplicationID)
+		if err != nil {
+			return nil, err
+		}
 
-	db.tables = newTableMap()
+		err = setPragma(store.cursor, "user_version", forensicstoreVersion)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		applicationID, err := pragma(store.cursor, "application_id")
+		if err != nil {
+			return nil, err
+		}
+		if applicationID != elementaryApplicationID {
+			msg := "wrong file format (application_id is %d, requires %d)"
+			return nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
+		}
 
-	tables, err := db.getTables()
+		version, err := pragma(store.cursor, "user_version")
+		if err != nil {
+			return nil, err
+		}
+		if version != forensicstoreVersion {
+			msg := "wrong file format (user_version is %d, requires %d)"
+			return nil, fmt.Errorf(msg, version, forensicstoreVersion)
+		}
+	}
+
+	store.schemas = newSchemaMap()
+
+	store.tables = newTableMap()
+
+	tables, err := store.getTables()
 	if err != nil {
 		return nil, err
 	}
 	for tableName, table := range tables {
-		db.tables.store(tableName, table)
+		store.tables.store(tableName, table)
 	}
 
 	nameTitle := map[string]string{}
@@ -155,14 +216,14 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 
 		nameTitle[path.Base(name)] = schema.Title
 
-		err = db.SetSchema(schema.Title, schema)
+		err = store.SetSchema(schema.Title, schema)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// replace refs
-	for _, schema := range db.Schemas() {
+	for _, schema := range store.Schemas() {
 		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
 			if sch, ok := elem.(*jsonschema.Schema); ok {
 				if sch.Ref != "" && sch.Ref[0] != '#' {
@@ -179,14 +240,14 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 	}
 
 	// fetch references
-	for _, schema := range db.Schemas() {
+	for _, schema := range store.Schemas() {
 		err = schema.FetchRemoteReferences()
 		if err != nil {
 			return nil, errors.Wrap(err, "could not FetchRemoteReferences")
 		}
 	}
 
-	return db, nil
+	return store, nil
 }
 
 /* ################################
@@ -194,8 +255,8 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo
 ################################ */
 
 // Insert adds a single element.
-func (db *ForensicStore) Insert(elem Element) (string, error) {
-	ids, err := db.InsertBatch([]Element{elem})
+func (store *ForensicStore) Insert(elem Element) (string, error) {
+	ids, err := store.InsertBatch([]Element{elem})
 	if err != nil {
 		return "", err
 	}
@@ -203,7 +264,7 @@ func (db *ForensicStore) Insert(elem Element) (string, error) {
 }
 
 // InsertBatch adds a set of elements. All elements must have the same fields.
-func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo
+func (store *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // nolint:gocyclo
 	if len(elements) == 0 {
 		return nil, nil
 	}
@@ -222,14 +283,14 @@ func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // 
 		return nil, errors.Wrap(err, "could not flatten element")
 	}
 
-	valErr, err := db.validateElementSchema(firstElement)
+	valErr, err := store.validateElementSchema(firstElement)
 	if err != nil {
 		return nil, errors.Wrap(err, "validation failed")
 	}
 	if len(valErr) > 0 {
 		return nil, fmt.Errorf("element could not be validated [%s]", strings.Join(valErr, ","))
 	}
-	if err := db.ensureTable(flatElement, firstElement); err != nil {
+	if err := store.ensureTable(flatElement, firstElement); err != nil {
 		return nil, errors.Wrap(err, "could not ensure table")
 	}
 
@@ -244,7 +305,7 @@ func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // 
 	var columnValues []interface{}
 	var ids []string
 	for _, element := range elements {
-		valErr, err := db.validateElementSchema(element)
+		valErr, err := store.validateElementSchema(element)
 		if err != nil {
 			return nil, errors.Wrap(err, "validation failed")
 		}
@@ -275,14 +336,17 @@ func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // 
 		`"`+strings.Join(columnNames, `","`)+`"`,
 		strings.Join(placeholderGrp, ","),
 	) // #nosec
-	stmt, err := db.cursor.Prepare(query)
+	stmt, err := store.cursor.Prepare(query)
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
 	}
 
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
-	_, err = stmt.Exec(columnValues...)
+	i := sqlite.BindIncrementor()
+	for _, columnValue := range columnValues {
+		stmt.BindText(i(), fmt.Sprint(columnValue))
+	}
+
+	_, err = stmt.Step()
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprint("could not exec statement", query, columnValues))
 	}
@@ -291,8 +355,8 @@ func (db *ForensicStore) InsertBatch(elements []Element) ([]string, error) { // 
 }
 
 // InsertStruct converts a Go struct to a map and inserts it.
-func (db *ForensicStore) InsertStruct(element interface{}) (string, error) {
-	ids, err := db.InsertStructBatch([]interface{}{element})
+func (store *ForensicStore) InsertStruct(element interface{}) (string, error) {
+	ids, err := store.InsertStructBatch([]interface{}{element})
 	if err != nil {
 		return "", err
 	}
@@ -300,7 +364,7 @@ func (db *ForensicStore) InsertStruct(element interface{}) (string, error) {
 }
 
 // InsertStructBatch adds a list of structs to the forensicstore.
-func (db *ForensicStore) InsertStructBatch(elements []interface{}) ([]string, error) {
+func (store *ForensicStore) InsertStructBatch(elements []interface{}) ([]string, error) {
 	var ms []Element
 	for _, element := range elements {
 		m := structs.Map(element)
@@ -308,27 +372,22 @@ func (db *ForensicStore) InsertStructBatch(elements []interface{}) ([]string, er
 		ms = append(ms, m)
 	}
 
-	return db.InsertBatch(ms)
+	return store.InsertBatch(ms)
 }
 
 // Get retreives a single element.
-func (db *ForensicStore) Get(id string) (element Element, err error) {
+func (store *ForensicStore) Get(id string) (element Element, err error) {
 	parts := strings.Split(id, "--")
 	discriminator := parts[0]
 
-	stmt, err := db.cursor.Prepare(fmt.Sprintf("SELECT * FROM \"%s\" WHERE id=?", discriminator)) // #nosec
+	stmt, err := store.cursor.Prepare(fmt.Sprintf("SELECT * FROM \"%s\" WHERE id=?", discriminator)) // #nosec
 	if err != nil {
 		return nil, err
 	}
 
-	db.sqlMutex.RLock()
-	rows, err := stmt.Query(id)
-	db.sqlMutex.RUnlock()
-	if err != nil {
-		return nil, err
-	}
+	stmt.BindText(1, id)
 
-	elements, err := db.rowsToElements(rows)
+	elements, err := store.rowsToElements(stmt)
 	if err != nil {
 		return nil, err
 	}
@@ -339,63 +398,55 @@ func (db *ForensicStore) Get(id string) (element Element, err error) {
 }
 
 // Query executes a sql query.
-func (db *ForensicStore) Query(query string) (elements []Element, err error) {
-	stmt, err := db.cursor.Prepare(query)
+func (store *ForensicStore) Query(query string) (elements []Element, err error) {
+	stmt, err := store.cursor.Prepare(query)
 	if err != nil {
 		return nil, err
 	}
 
-	db.sqlMutex.RLock()
-	rows, err := stmt.Query()
-	db.sqlMutex.RUnlock()
-	if err != nil {
-		return nil, err
-	}
-
-	return db.rowsToElements(rows)
+	return store.rowsToElements(stmt)
 }
 
 // StoreFile adds a file to the database folder.
-func (db *ForensicStore) StoreFile(filePath string) (storePath string, file afero.File, err error) {
-	err = db.MkdirAll(filepath.Join(db.storeFolder, filepath.Dir(filePath)), 0755)
+func (store *ForensicStore) StoreFile(filePath string) (storePath string, file afero.File, err error) {
+	err = store.MkdirAll(filepath.Dir(filePath), 0755)
 	if err != nil {
 		return "", nil, err
 	}
 
-	db.fileMutex.Lock()
 	i := 0
 	ext := filepath.Ext(filePath)
-	remoteStoreFilePath := path.Join(db.storeFolder, filePath)
+	remoteStoreFilePath := filePath
 	base := remoteStoreFilePath[:len(remoteStoreFilePath)-len(ext)]
 
-	exists, err := afero.Exists(db, remoteStoreFilePath)
+	exists, err := afero.Exists(store, remoteStoreFilePath)
 	if err != nil {
-		db.fileMutex.Unlock()
 		return "", nil, err
 	}
 	for exists {
 		remoteStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
 		i++
-		exists, err = afero.Exists(db, remoteStoreFilePath)
+		exists, err = afero.Exists(store, remoteStoreFilePath)
 		if err != nil {
-			db.fileMutex.Unlock()
 			return "", nil, err
 		}
 	}
 
-	file, err = db.Create(remoteStoreFilePath)
-	db.fileMutex.Unlock()
-	return remoteStoreFilePath[len(db.storeFolder)+1:], file, err
+	file, err = store.Create(remoteStoreFilePath)
+	return remoteStoreFilePath, file, err
 }
 
 // LoadFile opens a file from the database folder.
-func (db *ForensicStore) LoadFile(filePath string) (file afero.File, err error) {
-	return db.Open(path.Join(db.storeFolder, filePath))
+func (store *ForensicStore) LoadFile(filePath string) (file afero.File, err error) {
+	return store.Open(filePath)
 }
 
 // Close saves and closes the database.
-func (db *ForensicStore) Close() error {
-	return db.cursor.Close()
+func (store *ForensicStore) Close() error {
+	if closer, ok := store.Fs.(io.Closer); ok {
+		_ = closer.Close()
+	}
+	return store.cursor.Close()
 }
 
 /* ################################
@@ -403,38 +454,36 @@ func (db *ForensicStore) Close() error {
 ################################ */
 
 // Validate checks the database for various flaws.
-func (db *ForensicStore) Validate() (flaws []string, err error) {
+func (store *ForensicStore) Validate() (flaws []string, err error) {
 	flaws = []string{}
 	expectedFiles := map[string]bool{}
-	expectedFiles[filepath.FromSlash("/element.db")] = true
-	// expectedFiles["/element.db-journal"] = true
 
-	elements, err := db.All()
+	elements, err := store.All()
 	if err != nil {
 		return nil, err
 	}
 	for _, element := range elements {
-		validationErrors, elementExpectedFiles, err := db.validateElement(element)
+		validationErrors, elementExpectedFiles, err := store.validateElement(element)
 		if err != nil {
 			return nil, err
 		}
 		flaws = append(flaws, validationErrors...)
 		for _, elementExpectedFile := range elementExpectedFiles {
-			expectedFiles[filepath.FromSlash(elementExpectedFile)] = true
+			expectedFiles[filepath.ToSlash(elementExpectedFile)] = true
 		}
 	}
 
 	foundFiles := map[string]bool{}
 	var additionalFiles []string
-	err = afero.Walk(db, db.storeFolder, func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, "/element.db-journal") || info.IsDir() {
+	err = afero.Walk(store, "/", func(path string, info os.FileInfo, err error) error {
+		path = filepath.ToSlash(path)
+		if info.IsDir() {
 			return nil
 		}
-		path = path[len(db.storeFolder):]
 
 		foundFiles[path] = true
 		if _, ok := expectedFiles[path]; !ok {
-			additionalFiles = append(additionalFiles, filepath.ToSlash(path))
+			additionalFiles = append(additionalFiles, path)
 		}
 		return nil
 	})
@@ -449,7 +498,7 @@ func (db *ForensicStore) Validate() (flaws []string, err error) {
 	var missingFiles []string
 	for expectedFile := range expectedFiles {
 		if _, ok := foundFiles[expectedFile]; !ok {
-			missingFiles = append(missingFiles, filepath.ToSlash(expectedFile))
+			missingFiles = append(missingFiles, expectedFile)
 		}
 	}
 
@@ -459,7 +508,7 @@ func (db *ForensicStore) Validate() (flaws []string, err error) {
 	return flaws, nil
 }
 
-func (db *ForensicStore) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo
+func (store *ForensicStore) validateElement(element Element) (flaws []string, elementExpectedFiles []string, err error) { // nolint:gocyclo
 	flaws = []string{}
 	elementExpectedFiles = []string{}
 
@@ -467,7 +516,7 @@ func (db *ForensicStore) validateElement(element Element) (flaws []string, eleme
 		flaws = append(flaws, "element needs to have a discriminator")
 	}
 
-	valErr, err := db.validateElementSchema(element)
+	valErr, err := store.validateElementSchema(element)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -484,7 +533,7 @@ func (db *ForensicStore) validateElement(element Element) (flaws []string, eleme
 
 			elementExpectedFiles = append(elementExpectedFiles, "/"+exportPath)
 
-			exits, err := afero.Exists(db, filepath.Join(db.storeFolder, exportPath))
+			exits, err := afero.Exists(store, exportPath)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -493,7 +542,7 @@ func (db *ForensicStore) validateElement(element Element) (flaws []string, eleme
 			}
 
 			if size, ok := element["size"]; ok {
-				fi, err := db.Stat(filepath.Join(db.storeFolder, exportPath))
+				fi, err := store.Stat(exportPath)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -517,7 +566,7 @@ func (db *ForensicStore) validateElement(element Element) (flaws []string, eleme
 						continue
 					}
 
-					f, err := db.Open(filepath.Join(db.storeFolder, exportPath))
+					f, err := store.Open(exportPath)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -539,8 +588,8 @@ func (db *ForensicStore) validateElement(element Element) (flaws []string, eleme
 	return flaws, elementExpectedFiles, nil
 }
 
-func (db *ForensicStore) validateElementSchema(element Element) (flaws []string, err error) {
-	rootSchema, err := db.Schema(element[discriminator].(string))
+func (store *ForensicStore) validateElementSchema(element Element) (flaws []string, err error) {
+	rootSchema, err := store.Schema(element[discriminator].(string))
 	if err != nil {
 		if err == errSchemaNotFound {
 			return nil, nil // no schema for element
@@ -557,19 +606,19 @@ func (db *ForensicStore) validateElementSchema(element Element) (flaws []string,
 			id = " " + id.(string)
 		}
 
-		flaws = append(flaws, errors.Wrap(err, "failed to validate element"+id).Error())
+		flaws = append(flaws, errors.Wrap(err, "failed to validate element"+id+" "+fmt.Sprintf("%#v", i)).Error())
 	}
 	return flaws, nil
 }
 
 // Select retrieves all elements of a discriminated attribute.
-func (db *ForensicStore) Select(elementType string, conditions []map[string]string) (elements []Element, err error) {
+func (store *ForensicStore) Select(elementType string, conditions []map[string]string) (elements []Element, err error) {
 	var ors []string
 	for _, condition := range conditions {
 		var ands []string
 		for key, value := range condition {
 			if key != "type" {
-				ands = append(ands, fmt.Sprintf("\"%s\" LIKE \"%s\"", key, value))
+				ands = append(ands, fmt.Sprintf("\"%s\" LIKE '%s'", key, value))
 			}
 		}
 		if len(ands) > 0 {
@@ -582,7 +631,7 @@ func (db *ForensicStore) Select(elementType string, conditions []map[string]stri
 		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR ")) // #nosec
 	}
 
-	stmt, err := db.cursor.Prepare(query) // #nosec
+	stmt, err := store.cursor.Prepare(query) // #nosec
 	if err != nil {
 		if strings.Contains(err.Error(), "no such table") {
 			return nil, nil
@@ -590,168 +639,142 @@ func (db *ForensicStore) Select(elementType string, conditions []map[string]stri
 		return nil, err
 	}
 
-	db.sqlMutex.RLock()
-	rows, err := stmt.Query()
-	db.sqlMutex.RUnlock()
-	if err != nil {
-		return nil, err
+	/*/
+	i := sqlite.BindIncrementor()
+	for _, value := range values {
+		stmt.BindText(i(), value)
 	}
-
-	return db.rowsToElements(rows)
+	/*/
+	return store.rowsToElements(stmt)
 }
 
 // All returns every element.
-func (db *ForensicStore) All() (elements []Element, err error) {
+func (store *ForensicStore) All() (elements []Element, err error) {
 	elements = []Element{}
 
-	stmt, err := db.cursor.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%sqlite%';")
+	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%sqlite%' AND name != 'sqlar'")
 	if err != nil {
 		return nil, err
 	}
 
-	db.sqlMutex.RLock()
-	rows, err := stmt.Query()
-	db.sqlMutex.RUnlock()
-	if err != nil {
-		return nil, err
-	}
-
-	for rows.Next() {
-		s := ""
-		if err := rows.Scan(&s); err != nil {
+	for {
+		if hasRow, err := stmt.Step(); err != nil {
 			return nil, err
+		} else if !hasRow {
+			break
 		}
+
+		s := stmt.GetText("name")
 		if strings.HasPrefix(s, "_") {
 			continue
 		}
-		selectElements, err := db.Select(s, nil)
+		selectElements, err := store.Select(s, nil)
 		if err != nil {
 			return nil, err
 		}
 		elements = append(elements, selectElements...)
 	}
-	return
+	return elements, stmt.Finalize()
 }
 
 /* ################################
 #   Intern
 ################################ */
-func (db *ForensicStore) rowsToElements(rows *sql.Rows) (elements []Element, err error) {
-	defer rows.Close() //good habit to closes
-	cols, _ := rows.Columns()
+func (store *ForensicStore) rowsToElements(stmt *sqlite.Stmt) (elements []Element, err error) {
+	colCount := stmt.ColumnCount()
 
 	elements = []Element{}
 
-	for rows.Next() {
+	for {
 		// Create a slice of interface{}'s to represent each column,
 		// and a second slice to contain pointers to each element in the columns slice.
-		columns := make([]interface{}, len(cols))
-		columnPointers := make([]interface{}, len(cols))
+		columns := make([]interface{}, colCount)
+		columnPointers := make([]interface{}, colCount)
 		for i := range columns {
 			columnPointers[i] = &columns[i]
 		}
 
-		// Scan the result into the column pointers...
-		if err := rows.Scan(columnPointers...); err != nil {
+		if hasRow, err := stmt.Step(); err != nil {
 			return nil, err
+		} else if !hasRow {
+			break
 		}
 
-		// Create our map, and retrieve the value for each column from the pointers slice,
-		// storing it in the map with the name of the column as the key.
-		m := make(map[string]interface{})
-		for i, colName := range cols {
-			val := columnPointers[i].(*interface{})
-			types, _ := rows.ColumnTypes()
-			if (*val) == nil {
-				continue
-			}
+		flatItem := make(map[string]interface{})
 
-			switch types[i].ScanType().Kind() {
-			case reflect.Int:
-				m[colName] = float64((*val).(int))
-			case reflect.Int64:
-				m[colName] = float64((*val).(int64))
-			case reflect.String:
-
-				switch v := (*val).(type) {
-				case string:
-					m[colName] = v
-				case []uint8:
-					m[colName] = string(v)
-				default:
-					return nil, errors.New("unknown type")
-				}
-
-			default:
-				m[colName] = *val
+		for i := 0; i < colCount; i++ {
+			name := stmt.ColumnName(i)
+			switch stmt.ColumnType(i) {
+			case sqlite.SQLITE_INTEGER:
+				flatItem[name] = float64(stmt.GetInt64(name))
+			case sqlite.SQLITE_FLOAT:
+				flatItem[name] = stmt.GetFloat(name)
+			case sqlite.SQLITE_TEXT:
+				flatItem[name] = stmt.GetText(name)
+			case sqlite.SQLITE_BLOB:
 			}
 		}
 
-		element, _ := goflatten.Unflatten(m)
+		element, _ := goflatten.Unflatten(flatItem)
 		elements = append(elements, element)
 	}
-	return elements, nil
+	return elements, stmt.Finalize()
 }
 
-type columnInfo struct {
-	cid       int
-	name      string
-	ctype     string
-	notnull   bool
-	dfltValue interface{}
-	pk        int
-}
-
-func (db *ForensicStore) getTables() (map[string]map[string]string, error) {
-	db.sqlMutex.RLock()
-	rows, err := db.cursor.Query("SELECT name FROM sqlite_master")
-	db.sqlMutex.RUnlock()
+func (store *ForensicStore) getTables() (map[string]map[string]string, error) {
+	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master")
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	tables := map[string]map[string]string{}
 
-	for rows.Next() {
-		name := ""
-		if err := rows.Scan(&name); err != nil {
+	for {
+		if hasRow, err := stmt.Step(); err != nil {
 			return nil, err
+		} else if !hasRow {
+			break
 		}
+
+		name := stmt.GetText("name")
 
 		if strings.HasPrefix(name, "sqlite") || strings.HasPrefix(name, "_") {
 			continue
 		}
+		if name == "sqlar" {
+			continue
+		}
 		tables[name] = map[string]string{}
 
-		db.sqlMutex.RLock()
-		columnRows, err := db.cursor.Query(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
-		db.sqlMutex.RUnlock()
+		pragmaStmt, err := store.cursor.Prepare(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
 		if err != nil {
 			return nil, err
 		}
 
-		for columnRows.Next() {
-			var c columnInfo
-			if err := columnRows.Scan(&c.cid, &c.name, &c.ctype, &c.notnull, &c.dfltValue, &c.pk); err != nil {
-				columnRows.Close()
+		for {
+			if pragmaHasRow, err := pragmaStmt.Step(); err != nil {
 				return nil, err
+			} else if !pragmaHasRow {
+				break
 			}
-			tables[name][c.name] = c.ctype
+
+			columnName := pragmaStmt.GetText("name")
+			columnType := pragmaStmt.GetText("type")
+			tables[name][columnName] = columnType
 		}
-		columnRows.Close()
+		pragmaStmt.Finalize()
 	}
-	return tables, nil
+
+	return tables, stmt.Finalize()
 }
 
-func (db *ForensicStore) ensureTable(flatElement Element, element Element) error {
+func (store *ForensicStore) ensureTable(flatElement Element, element Element) error {
 	elementType := element[discriminator].(string)
 
-	db.sqlMutex.Lock()
-	defer db.sqlMutex.Unlock()
-
-	if table, ok := db.tables.load(elementType); !ok {
-		if err := db.createTable(flatElement); err != nil {
+	store.columnMutex.Lock()
+	defer store.columnMutex.Unlock()
+	if table, ok := store.tables.load(elementType); !ok {
+		if err := store.createTable(flatElement); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
 	} else {
@@ -763,7 +786,7 @@ func (db *ForensicStore) ensureTable(flatElement Element, element Element) error
 		}
 
 		if len(missingColumns) > 0 {
-			if err := db.addMissingColumns(element[discriminator].(string), flatElement, missingColumns); err != nil {
+			if err := store.addMissingColumns(element[discriminator].(string), flatElement, missingColumns); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("adding missing column failed %v", missingColumns))
 			}
 		}
@@ -771,22 +794,35 @@ func (db *ForensicStore) ensureTable(flatElement Element, element Element) error
 	return nil
 }
 
-func (db *ForensicStore) createTable(flatElement Element) error {
+func (store *ForensicStore) createTable(flatElement Element) error {
 	table := map[string]string{"id": "TEXT", discriminator: "TEXT"}
-	db.tables.store(flatElement[discriminator].(string), table)
+	store.tables.store(flatElement[discriminator].(string), table)
 
 	columns := []string{"id TEXT PRIMARY KEY", discriminator + " TEXT NOT NULL"}
 	for columnName := range flatElement {
 		if columnName != "id" && columnName != discriminator {
 			sqlDataType := getSQLDataType(flatElement[columnName])
-			db.tables.innerstore(flatElement[discriminator].(string), columnName, sqlDataType)
+			store.tables.innerstore(flatElement[discriminator].(string), columnName, sqlDataType)
 			columns = append(columns, fmt.Sprintf("`%s` %s", columnName, sqlDataType))
 		}
 	}
 	columnText := strings.Join(columns, ", ")
 
-	_, err := db.cursor.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatElement[discriminator], columnText))
-	return err
+	return store.exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatElement[discriminator], columnText))
+}
+
+func (store *ForensicStore) exec(query string) error {
+	stmt, err := store.cursor.Prepare(query)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Step()
+	if err != nil {
+		return err
+	}
+
+	return stmt.Finalize()
 }
 
 func getSQLDataType(value interface{}) string {
@@ -800,12 +836,12 @@ func getSQLDataType(value interface{}) string {
 	}
 }
 
-func (db *ForensicStore) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
+func (store *ForensicStore) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
 	sort.Strings(newColumns)
 	for _, newColumn := range newColumns {
 		sqlDataType := getSQLDataType(columns[newColumn])
-		db.tables.innerstore(table, newColumn, sqlDataType)
-		_, err := db.cursor.Exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
+		store.tables.innerstore(table, newColumn, sqlDataType)
+		err := store.exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
 		if err != nil {
 			return err
 		}
@@ -814,21 +850,21 @@ func (db *ForensicStore) addMissingColumns(table string, columns map[string]inte
 }
 
 // SetSchema inserts or replaces a json schema for input validation.
-func (db *ForensicStore) SetSchema(id string, schema *jsonschema.RootSchema) error {
-	if val, ok := db.schemas.load(id); ok && val == schema {
+func (store *ForensicStore) SetSchema(id string, schema *jsonschema.RootSchema) error {
+	if val, ok := store.schemas.load(id); ok && val == schema {
 		return nil
 	}
 
-	// db.schemas[id] = schema
-	db.schemas.store(id, schema)
+	// store.schemas[id] = schema
+	store.schemas.store(id, schema)
 	return nil
 }
 
 var errSchemaNotFound = errors.New("schema not found")
 
 // Schema gets a single schema from the database.
-func (db *ForensicStore) Schema(id string) (*jsonschema.RootSchema, error) {
-	if schema, ok := db.schemas.load(id); ok {
+func (store *ForensicStore) Schema(id string) (*jsonschema.RootSchema, error) {
+	if schema, ok := store.schemas.load(id); ok {
 		return schema, nil
 	}
 
@@ -836,6 +872,6 @@ func (db *ForensicStore) Schema(id string) (*jsonschema.RootSchema, error) {
 }
 
 // Schemas gets all schemas from the database.
-func (db *ForensicStore) Schemas() []*jsonschema.RootSchema {
-	return db.schemas.values()
+func (store *ForensicStore) Schemas() []*jsonschema.RootSchema {
+	return store.schemas.values()
 }
