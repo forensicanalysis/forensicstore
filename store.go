@@ -24,16 +24,10 @@
 package forensicstore
 
 import (
-	"crawshaw.io/sqlite"
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/structs"
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-	"github.com/qri-io/jsonschema"
-	"github.com/spf13/afero"
 	"hash"
 	"io"
 	"log"
@@ -44,8 +38,15 @@ import (
 	"strings"
 	"sync"
 
+	"crawshaw.io/sqlite"
+	"github.com/fatih/structs"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/qri-io/jsonschema"
+	"github.com/spf13/afero"
+
 	"github.com/forensicanalysis/forensicstore/goflatten"
-	"github.com/forensicanalysis/sqlitefs"
+	"github.com/forensicanalysis/forensicstore/sqlitefs"
 	"github.com/forensicanalysis/stixgo"
 )
 

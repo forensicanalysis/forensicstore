@@ -5,7 +5,7 @@ go 1.12
 require (
 	crawshaw.io/sqlite v0.2.5
 	github.com/fatih/structs v1.1.0
-	github.com/forensicanalysis/sqlitefs v0.0.0-00010101000000-000000000000
+	github.com/forensicanalysis/fslib v0.13.1
 	github.com/forensicanalysis/stixgo v0.1.0
 	github.com/google/uuid v1.1.1
 	github.com/iancoleman/strcase v0.0.0-20190422225806-e506e3ef7365
@@ -16,5 +16,3 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1
 )
-
-replace github.com/forensicanalysis/sqlitefs => ../sqlitefs
