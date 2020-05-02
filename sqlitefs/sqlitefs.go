@@ -112,7 +112,7 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 		if err != nil {
 			return nil, err
 		} else if !hasRow {
-			return nil, os.ErrNotExist
+			return nil, os.ErrNotExist // afero.Exists needs os.ErrNotExists
 		}
 
 		id = stmt.GetInt64("rowid")
@@ -232,7 +232,7 @@ func (fs *FS) Stat(name string) (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	} else if !hasRow {
-		return nil, os.ErrNotExist
+		return nil, os.ErrNotExist // afero.Exists needs os.ErrNotExists
 	}
 
 	size := stmt.GetInt64("sz")

@@ -73,7 +73,7 @@ const discriminator = "type"
 // objects like files are usually stored outside the forensicstore and references
 // from the forensicstore.
 type ForensicStore struct {
-	afero.Fs
+	fs          afero.Fs
 	cursor      *sqlite.Conn
 	tables      *tableMap
 	schemas     *schemaMap
@@ -156,7 +156,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	if err != nil {
 		return nil, err
 	}
-	store.Fs = fs
+	store.fs = fs
 
 	store.cursor, err = sqlite.OpenConn(url, 0)
 	if err != nil {
@@ -248,6 +248,10 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	}
 
 	return store, nil
+}
+
+func (store *ForensicStore) SetFS(fs afero.Fs) {
+	store.fs = fs
 }
 
 /* ################################
@@ -408,8 +412,8 @@ func (store *ForensicStore) Query(query string) (elements []Element, err error) 
 }
 
 // StoreFile adds a file to the database folder.
-func (store *ForensicStore) StoreFile(filePath string) (storePath string, file afero.File, err error) {
-	err = store.MkdirAll(filepath.Dir(filePath), 0755)
+func (store *ForensicStore) StoreFile(filePath string) (storePath string, file io.WriteCloser, err error) {
+	err = store.fs.MkdirAll(filepath.Dir(filePath), 0755)
 	if err != nil {
 		return "", nil, err
 	}
@@ -419,31 +423,31 @@ func (store *ForensicStore) StoreFile(filePath string) (storePath string, file a
 	remoteStoreFilePath := filePath
 	base := remoteStoreFilePath[:len(remoteStoreFilePath)-len(ext)]
 
-	exists, err := afero.Exists(store, remoteStoreFilePath)
+	exists, err := afero.Exists(store.fs, remoteStoreFilePath)
 	if err != nil {
 		return "", nil, err
 	}
 	for exists {
 		remoteStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
 		i++
-		exists, err = afero.Exists(store, remoteStoreFilePath)
+		exists, err = afero.Exists(store.fs, remoteStoreFilePath)
 		if err != nil {
 			return "", nil, err
 		}
 	}
 
-	file, err = store.Create(remoteStoreFilePath)
+	file, err = store.fs.Create(remoteStoreFilePath)
 	return remoteStoreFilePath, file, err
 }
 
 // LoadFile opens a file from the database folder.
-func (store *ForensicStore) LoadFile(filePath string) (file afero.File, err error) {
-	return store.Open(filePath)
+func (store *ForensicStore) LoadFile(filePath string) (file io.ReadCloser, err error) {
+	return store.fs.Open(filePath)
 }
 
 // Close saves and closes the database.
 func (store *ForensicStore) Close() error {
-	if closer, ok := store.Fs.(io.Closer); ok {
+	if closer, ok := store.fs.(io.Closer); ok {
 		_ = closer.Close()
 	}
 	return store.cursor.Close()
@@ -475,7 +479,7 @@ func (store *ForensicStore) Validate() (flaws []string, err error) {
 
 	foundFiles := map[string]bool{}
 	var additionalFiles []string
-	err = afero.Walk(store, "/", func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(store.fs, "/", func(path string, info os.FileInfo, err error) error {
 		path = filepath.ToSlash(path)
 		if info == nil || info.IsDir() {
 			return nil
@@ -533,7 +537,7 @@ func (store *ForensicStore) validateElement(element Element) (flaws []string, el
 
 			elementExpectedFiles = append(elementExpectedFiles, "/"+exportPath)
 
-			exits, err := afero.Exists(store, exportPath)
+			exits, err := afero.Exists(store.fs, exportPath)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -542,7 +546,7 @@ func (store *ForensicStore) validateElement(element Element) (flaws []string, el
 			}
 
 			if size, ok := element["size"]; ok {
-				fi, err := store.Stat(exportPath)
+				fi, err := store.fs.Stat(exportPath)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -566,7 +570,7 @@ func (store *ForensicStore) validateElement(element Element) (flaws []string, el
 						continue
 					}
 
-					f, err := store.Open(exportPath)
+					f, err := store.fs.Open(exportPath)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -640,11 +644,11 @@ func (store *ForensicStore) Select(elementType string, conditions []map[string]s
 	}
 
 	/*/
-	i := sqlite.BindIncrementor()
-	for _, value := range values {
-		stmt.BindText(i(), value)
-	}
-	/*/
+	  i := sqlite.BindIncrementor()
+	  for _, value := range values {
+	      stmt.BindText(i(), value)
+	  }
+	  /*/
 	return store.rowsToElements(stmt)
 }
 
