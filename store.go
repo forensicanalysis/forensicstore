@@ -227,7 +227,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
 			if sch, ok := elem.(*jsonschema.Schema); ok {
 				if sch.Ref != "" && sch.Ref[0] != '#' {
-					sch.Ref = "jsonlite:" + nameTitle[path.Base(sch.Ref)]
+					sch.Ref = "elementary:" + nameTitle[path.Base(sch.Ref)]
 				}
 			}
 			return nil
@@ -236,7 +236,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 			return nil, err
 		}
 
-		jsonschema.DefaultSchemaPool["jsonlite:"+schema.Title] = &schema.Schema
+		jsonschema.DefaultSchemaPool["elementary:"+schema.Title] = &schema.Schema
 	}
 
 	// fetch references
