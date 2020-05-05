@@ -31,31 +31,28 @@ import (
 
 type tableMap struct {
 	sync.RWMutex
-	internal map[string]map[string]string
+	tables map[string]map[string]bool
 }
 
 func newTableMap() *tableMap {
 	return &tableMap{
-		internal: make(map[string]map[string]string),
+		tables: map[string]map[string]bool{},
 	}
 }
 
-func (rm *tableMap) load(key string) (value map[string]string, ok bool) {
+func (rm *tableMap) load(name string) (columns map[string]bool, ok bool) {
 	rm.RLock()
-	result, ok := rm.internal[key]
+	columns, ok = rm.tables[name]
 	rm.RUnlock()
-	return result, ok
+	return columns, ok
 }
 
-func (rm *tableMap) store(key string, value map[string]string) {
+func (rm *tableMap) add(name, column string) {
 	rm.Lock()
-	rm.internal[key] = value
-	rm.Unlock()
-}
-
-func (rm *tableMap) innerstore(key, innerkey, value string) {
-	rm.Lock()
-	rm.internal[key][innerkey] = value
+	if _, ok := rm.tables[name]; !ok {
+		rm.tables[name] = map[string]bool{}
+	}
+	rm.tables[name][column] = true
 	rm.Unlock()
 }
 

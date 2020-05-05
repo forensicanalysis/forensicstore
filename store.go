@@ -52,18 +52,6 @@ import (
 
 const forensicstoreVersion = 2
 const elementaryApplicationID = 1701602669
-
-const (
-	// integer represents the SQL INTEGER type
-	integer = "INTEGER"
-	// numeric represents the SQL NUMERIC type
-	numeric = "NUMERIC"
-	// text represents the SQL TEXT type
-	text = "TEXT"
-	// blob represents the SQL BLOB type
-	// blob = "BLOB"
-)
-
 const discriminator = "type"
 
 // The ForensicStore is a central storage for elements in digital forensic
@@ -201,8 +189,10 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	if err != nil {
 		return nil, err
 	}
-	for tableName, table := range tables {
-		store.tables.store(tableName, table)
+	for tableName, columns := range tables {
+		for _, column := range columns {
+			store.tables.add(tableName, column)
+		}
 	}
 
 	nameTitle := map[string]string{}
@@ -227,7 +217,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
 			if sch, ok := elem.(*jsonschema.Schema); ok {
 				if sch.Ref != "" && sch.Ref[0] != '#' {
-					sch.Ref = "jsonlite:" + nameTitle[path.Base(sch.Ref)]
+					sch.Ref = "elementary:" + nameTitle[path.Base(sch.Ref)]
 				}
 			}
 			return nil
@@ -236,7 +226,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 			return nil, err
 		}
 
-		jsonschema.DefaultSchemaPool["jsonlite:"+schema.Title] = &schema.Schema
+		jsonschema.DefaultSchemaPool["elementary:"+schema.Title] = &schema.Schema
 	}
 
 	// fetch references
@@ -335,7 +325,7 @@ func (store *ForensicStore) InsertBatch(elements []Element) ([]string, error) { 
 	}
 
 	query := fmt.Sprintf(
-		"INSERT INTO \"%s\"(%s) VALUES %s",
+		"INSERT INTO `%s`(%s) VALUES %s",
 		firstElement[discriminator].(string),
 		`"`+strings.Join(columnNames, `","`)+`"`,
 		strings.Join(placeholderGrp, ","),
@@ -643,12 +633,6 @@ func (store *ForensicStore) Select(elementType string, conditions []map[string]s
 		return nil, err
 	}
 
-	/*/
-	  i := sqlite.BindIncrementor()
-	  for _, value := range values {
-	      stmt.BindText(i(), value)
-	  }
-	  /*/
 	return store.rowsToElements(stmt)
 }
 
@@ -656,7 +640,7 @@ func (store *ForensicStore) Select(elementType string, conditions []map[string]s
 func (store *ForensicStore) All() (elements []Element, err error) {
 	elements = []Element{}
 
-	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '%sqlite%' AND name != 'sqlar'")
+	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master")
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +653,7 @@ func (store *ForensicStore) All() (elements []Element, err error) {
 		}
 
 		s := stmt.GetText("name")
-		if strings.HasPrefix(s, "_") {
+		if !isElementTable(s) {
 			continue
 		}
 		selectElements, err := store.Select(s, nil)
@@ -686,8 +670,6 @@ func (store *ForensicStore) All() (elements []Element, err error) {
 ################################ */
 
 func (store *ForensicStore) rowsToElements(stmt *sqlite.Stmt) (elements []Element, err error) {
-	colCount := stmt.ColumnCount()
-
 	elements = []Element{}
 
 	for {
@@ -697,34 +679,56 @@ func (store *ForensicStore) rowsToElements(stmt *sqlite.Stmt) (elements []Elemen
 			break
 		}
 
-		flatItem := make(map[string]interface{})
-
-		for i := 0; i < colCount; i++ {
-			name := stmt.ColumnName(i)
-			switch stmt.ColumnType(i) {
-			case sqlite.SQLITE_INTEGER:
-				flatItem[name] = float64(stmt.GetInt64(name))
-			case sqlite.SQLITE_FLOAT:
-				flatItem[name] = stmt.GetFloat(name)
-			case sqlite.SQLITE_TEXT:
-				flatItem[name] = stmt.GetText(name)
-			case sqlite.SQLITE_BLOB:
-			}
-		}
-
-		element, _ := goflatten.Unflatten(flatItem)
+		element := store.rowToElement(stmt)
 		elements = append(elements, element)
 	}
 	return elements, stmt.Finalize()
 }
 
-func (store *ForensicStore) getTables() (map[string]map[string]string, error) {
+func (store *ForensicStore) rowToElement(stmt *sqlite.Stmt) map[string]interface{} {
+	colCount := stmt.ColumnCount()
+	flatItem := make(map[string]interface{})
+
+	for i := 0; i < colCount; i++ {
+		name := stmt.ColumnName(i)
+		switch stmt.ColumnType(i) {
+		case sqlite.SQLITE_INTEGER:
+			flatItem[name] = float64(stmt.GetInt64(name))
+		case sqlite.SQLITE_FLOAT:
+			flatItem[name] = stmt.GetFloat(name)
+		case sqlite.SQLITE_TEXT:
+			flatItem[name] = stmt.GetText(name)
+		case sqlite.SQLITE_BLOB:
+		}
+	}
+
+	element, _ := goflatten.Unflatten(flatItem)
+	return element
+}
+
+func isElementTable(name string) bool {
+	if strings.HasPrefix(name, "sqlite") || strings.HasPrefix(name, "_") {
+		return false
+	}
+	if name == "sqlar" {
+		return false
+	}
+
+	for _, suffix := range []string{"_data", "_idx", "_content", "_docsize", "_config"} {
+		if strings.HasSuffix(name, suffix) {
+			return false
+		}
+	}
+	return true
+}
+
+func (store *ForensicStore) getTables() (map[string][]string, error) {
 	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master")
 	if err != nil {
 		return nil, err
 	}
 
-	tables := map[string]map[string]string{}
+	tables := map[string][]string{}
 
 	for {
 		if hasRow, err := stmt.Step(); err != nil {
@@ -735,13 +739,11 @@ func (store *ForensicStore) getTables() (map[string]map[string]string, error) {
 
 		name := stmt.GetText("name")
 
-		if strings.HasPrefix(name, "sqlite") || strings.HasPrefix(name, "_") {
+		if !isElementTable(name) {
 			continue
 		}
-		if name == "sqlar" {
-			continue
-		}
-		tables[name] = map[string]string{}
+
+		tables[name] = []string{}
 
 		pragmaStmt, err := store.cursor.Prepare(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
 		if err != nil {
@@ -756,13 +758,17 @@ func (store *ForensicStore) getTables() (map[string]map[string]string, error) {
 			}
 
 			columnName := pragmaStmt.GetText("name")
-			columnType := pragmaStmt.GetText("type")
-			tables[name][columnName] = columnType
+			// columnType := pragmaStmt.GetText("type")
+			tables[name] = append(tables[name], columnName)
 		}
 		err = pragmaStmt.Finalize()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	for table := range tables {
+		sort.Strings(tables[table])
 	}
 
 	return tables, stmt.Finalize()
@@ -773,20 +779,24 @@ func (store *ForensicStore) ensureTable(flatElement Element, element Element) er
 
 	store.columnMutex.Lock()
 	defer store.columnMutex.Unlock()
-	if table, ok := store.tables.load(elementType); !ok {
-		if err := store.createTable(flatElement); err != nil {
+	if columns, ok := store.tables.load(elementType); !ok {
+		if err := store.createTable(elementType, keys(flatElement)); err != nil {
 			return errors.Wrap(err, "create table failed")
 		}
 	} else {
 		var missingColumns []string
 		for attribute := range flatElement {
-			if _, ok := table[attribute]; !ok {
+			if _, ok := columns[attribute]; !ok {
 				missingColumns = append(missingColumns, attribute)
 			}
 		}
+		var existingColumns []string
+		for column := range columns {
+			existingColumns = append(existingColumns, column)
+		}
 
 		if len(missingColumns) > 0 {
-			if err := store.addMissingColumns(element[discriminator].(string), flatElement, missingColumns); err != nil {
+			if err := store.addMissingColumns(elementType, existingColumns, missingColumns); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("adding missing column failed %v", missingColumns))
 			}
 		}
@@ -794,21 +804,35 @@ func (store *ForensicStore) ensureTable(flatElement Element, element Element) er
 	return nil
 }
 
-func (store *ForensicStore) createTable(flatElement Element) error {
-	table := map[string]string{"id": "TEXT", discriminator: "TEXT"}
-	store.tables.store(flatElement[discriminator].(string), table)
+func keys(element Element) []string {
+	var columns []string
+	for columnName := range element {
+		columns = append(columns, columnName)
+	}
+	return columns
+}
 
-	columns := []string{"id TEXT PRIMARY KEY", discriminator + " TEXT NOT NULL"}
-	for columnName := range flatElement {
+func (store *ForensicStore) createTable(name string, columns []string) error {
+	base := []string{"`id`", "`" + discriminator + "`"}
+	store.tables.add(name, "id")
+	store.tables.add(name, discriminator)
+
+	var columnsQ []string
+	for _, columnName := range columns {
 		if columnName != "id" && columnName != discriminator {
-			sqlDataType := getSQLDataType(flatElement[columnName])
-			store.tables.innerstore(flatElement[discriminator].(string), columnName, sqlDataType)
-			columns = append(columns, fmt.Sprintf("`%s` %s", columnName, sqlDataType))
+			store.tables.add(name, columnName)
+			columnsQ = append(columnsQ, fmt.Sprintf(`"%s"`, columnName))
 		}
 	}
-	columnText := strings.Join(columns, ", ")
+	sort.Strings(columnsQ)
+	columnText := strings.Join(append(base, columnsQ...), ", ")
 
-	return store.exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatElement[discriminator], columnText))
+	query := fmt.Sprintf(
+		"CREATE VIRTUAL TABLE IF NOT EXISTS `%s` USING fts5(%s, tokenize=\"unicode61 tokenchars '/.'\")",
+		name, columnText,
+	)
+
+	return store.exec(query)
 }
 
 func (store *ForensicStore) exec(query string) error {
@@ -825,28 +849,38 @@ func (store *ForensicStore) exec(query string) error {
 	return stmt.Finalize()
 }
 
-func getSQLDataType(value interface{}) string {
-	switch value.(type) {
-	case int, int16, int8, int32, int64, uint, uint16, uint8, uint32, uint64:
-		return integer
-	case float32, float64:
-		return numeric
-	default:
-		return text
-	}
-}
-
-func (store *ForensicStore) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
+func (store *ForensicStore) addMissingColumns(table string, oldColumns, newColumns []string) error {
 	sort.Strings(newColumns)
-	for _, newColumn := range newColumns {
-		sqlDataType := getSQLDataType(columns[newColumn])
-		store.tables.innerstore(table, newColumn, sqlDataType)
-		err := store.exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
-		if err != nil {
-			return err
-		}
+
+	var oldColumnsWrap []string
+	for _, oldColumn := range oldColumns {
+		newColumns = append(newColumns, oldColumn)
+		oldColumnsWrap = append(oldColumnsWrap, "`"+oldColumn+"`")
 	}
-	return nil
+
+	tmpTable := "new_virtual_table"
+
+	// 4: rename new virtual table to origin table
+	err := store.exec(fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", table, tmpTable)) // #nosec
+	if err != nil {
+		return err
+	}
+
+	// 1: Create new virtual table with additional column
+	err = store.createTable(table, newColumns)
+	if err != nil {
+		return err
+	}
+
+	// 2: Fill new virtual table with data
+	cw := strings.Join(oldColumnsWrap, ",")
+	err = store.exec(fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM `%s`", table, cw, cw, tmpTable)) // #nosec
+	if err != nil {
+		return err
+	}
+
+	// 3: drop original table
+	return store.exec(fmt.Sprintf("DROP TABLE `%s`", tmpTable)) // #nosec
 }
 
 // SetSchema inserts or replaces a json schema for input validation.

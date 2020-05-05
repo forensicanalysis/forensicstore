@@ -29,6 +29,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,7 +55,7 @@ var (
 	}
 )
 
-var exampleStore = "example2.forensicstore"
+var exampleStore = "example1.forensicstore"
 
 func setup(t *testing.T) string {
 	dir, err := ioutil.TempDir("", "forensicstore")
@@ -64,9 +65,6 @@ func setup(t *testing.T) string {
 	src := filepath.Join("test", "forensicstore", exampleStore)
 	dst := filepath.Join(dir, exampleStore)
 	copyFile(t, src, dst)
-	// for _, name := range []string{"element.store", filepath.Join("WindowsAMCacheHveFile", "Amcache.hve"), filepath.Join("IPTablesRules", "stderr"), filepath.Join("IPTablesRules", "stdout"), filepath.Join("WMILogicalDisks", "stdout"), filepath.Join("WMILogicalDisks", "wmi"), filepath.Join("WMILogicalDisks", "stderr")} {
-	// 	copyFile(t, filepath.Join(src, name), filepath.Join(dst, name))
-	// }
 
 	return filepath.Join(dir, exampleStore)
 }
@@ -267,6 +265,7 @@ func TestStore_QueryStore(t *testing.T) {
 		wantErr      bool
 	}{
 		{"Query", fields{testDir}, args{"SELECT * FROM process WHERE name='iptables'"}, []Element{ProcessElement}, false},
+		{"FTS Query", fields{testDir}, args{"SELECT * FROM process WHERE process = 'IPTablesRules'"}, []Element{ProcessElement}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -365,11 +364,21 @@ func TestStore_getTables(t *testing.T) {
 	testDir := setup(t)
 	defer teardown(t, testDir)
 
-	expectedTables := map[string]map[string]string{
-		"directory":            {"atime": "TEXT", "artifact": "TEXT", "ctime": "TEXT", "mtime": "TEXT", "path": "TEXT", "type": "TEXT", "id": "TEXT"},
-		"file":                 {"atime": "TEXT", "artifact": "TEXT", "ctime": "TEXT", "export_path": "TEXT", "hashes.MD5": "TEXT", "hashes.SHA-1": "TEXT", "mtime": "TEXT", "name": "TEXT", "origin.path": "TEXT", "origin.volume": "TEXT", "size": "INTEGER", "type": "TEXT", "id": "TEXT"},
-		"process":              {"artifact": "TEXT", "command_line": "TEXT", "created_time": "TEXT", "cwd": "TEXT", "name": "TEXT", "return_code": "INTEGER", "stderr_path": "TEXT", "stdout_path": "TEXT", "type": "TEXT", "id": "TEXT", "wmi_path": "TEXT"},
-		"windows-registry-key": {"artifact": "TEXT", "key": "TEXT", "modified_time": "TEXT", "type": "TEXT", "id": "TEXT", "values.0.data": "TEXT", "values.0.data_type": "TEXT", "values.0.name": "TEXT"},
+	directory := []string{"atime", "artifact", "ctime", "mtime", "path", "type", "id"}
+	file := []string{"atime", "artifact", "ctime", "export_path", "hashes.MD5", "hashes.SHA-1", "mtime", "name", "origin.path", "origin.volume", "size", "type", "id"}
+	process := []string{"artifact", "command_line", "created_time", "cwd", "name", "return_code", "stderr_path", "stdout_path", "type", "id", "wmi_path"}
+	windowsRegistryKey := []string{"artifact", "key", "modified_time", "type", "id", "values.0.data", "values.0.data_type", "values.0.name"}
+
+	sort.Strings(directory)
+	sort.Strings(file)
+	sort.Strings(process)
+	sort.Strings(windowsRegistryKey)
+
+	expectedTables := map[string][]string{
+		"directory":            directory,
+		"file":                 file,
+		"process":              process,
+		"windows-registry-key": windowsRegistryKey,
 	}
 
 	type fields struct {
@@ -378,7 +387,7 @@ func TestStore_getTables(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		want    map[string]map[string]string
+		want    map[string][]string
 		wantErr bool
 	}{
 		{"Get Tables", fields{testDir}, expectedTables, false},
@@ -463,29 +472,9 @@ func TestStore_createTable(t *testing.T) {
 			}
 			defer store.Close()
 
-			if err := store.createTable(tt.args.flatElement); (err != nil) != tt.wantErr {
+			typ := tt.args.flatElement["type"].(string)
+			if err := store.createTable(typ, keys(tt.args.flatElement)); (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.createTable() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func Test_getSQLDataType(t *testing.T) {
-	type args struct {
-		value interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{"Get SQL Data Type INTEGER", args{1}, "INTEGER"},
-		{"Get SQL Data Type TEXT", args{"foo"}, "TEXT"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getSQLDataType(tt.args.value); got != tt.want {
-				t.Errorf("getSQLDataType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -645,4 +634,45 @@ func TestStore_StoreFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAddingColumns(t *testing.T) {
+	testDir := setup(t)
+	defer teardown(t, testDir)
+
+	store, err := Open(testDir)
+	if err != nil || store == nil {
+		t.Fatalf("Database could not be opened %v\n", err)
+	}
+	defer store.Close()
+
+	bar := Element{"name": "bar", "type": "ba", "int": 2}
+	baz := Element{"name": "baz", "type": "ba", "float": 0.1}
+
+	store.Insert(bar)
+	store.Insert(baz)
+
+	tables, _ := store.getTables()
+	baTable := tables["ba"]
+	if contains(baTable, "name") != true {
+		t.Errorf("missing name")
+	}
+	if contains(baTable, "type") != true {
+		t.Errorf("missing type")
+	}
+	if contains(baTable, "int") != true {
+		t.Errorf("missing int")
+	}
+	if contains(baTable, "float") != true {
+		t.Errorf("missing float")
+	}
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
