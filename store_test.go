@@ -635,3 +635,44 @@ func TestStore_StoreFile(t *testing.T) {
 		})
 	}
 }
+
+func TestAddingColumns(t *testing.T) {
+	testDir := setup(t)
+	defer teardown(t, testDir)
+
+	store, err := Open(testDir)
+	if err != nil || store == nil {
+		t.Fatalf("Database could not be opened %v\n", err)
+	}
+	defer store.Close()
+
+	bar := Element{"name": "bar", "type": "ba", "int": 2}
+	baz := Element{"name": "baz", "type": "ba", "float": 0.1}
+
+	store.Insert(bar)
+	store.Insert(baz)
+
+	tables, _ := store.getTables()
+	baTable := tables["ba"]
+	if contains(baTable, "name") != true {
+		t.Errorf("missing name")
+	}
+	if contains(baTable, "type") != true {
+		t.Errorf("missing type")
+	}
+	if contains(baTable, "int") != true {
+		t.Errorf("missing int")
+	}
+	if contains(baTable, "float") != true {
+		t.Errorf("missing float")
+	}
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}

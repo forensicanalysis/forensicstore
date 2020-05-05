@@ -633,12 +633,6 @@ func (store *ForensicStore) Select(elementType string, conditions []map[string]s
 		return nil, err
 	}
 
-	/*/
-	  i := sqlite.BindIncrementor()
-	  for _, value := range values {
-	      stmt.BindText(i(), value)
-	  }
-	  /*/
 	return store.rowsToElements(stmt)
 }
 
@@ -864,28 +858,29 @@ func (store *ForensicStore) addMissingColumns(table string, oldColumns, newColum
 		oldColumnsWrap = append(oldColumnsWrap, "`"+oldColumn+"`")
 	}
 
-	// 1: Create new virtual table with additional column
 	tmpTable := "new_virtual_table"
-	err := store.createTable(tmpTable, newColumns)
+
+	// 4: rename new virtual table to origin table
+	err := store.exec(fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", table, tmpTable)) // #nosec
+	if err != nil {
+		return err
+	}
+
+	// 1: Create new virtual table with additional column
+	err = store.createTable(table, newColumns)
 	if err != nil {
 		return err
 	}
 
 	// 2: Fill new virtual table with data
 	cw := strings.Join(oldColumnsWrap, ",")
-	err = store.exec(fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM `%s`", tmpTable, cw, table)) // #nosec
+	err = store.exec(fmt.Sprintf("INSERT INTO %s (%s) SELECT %s FROM `%s`", table, cw, cw, tmpTable)) // #nosec
 	if err != nil {
 		return err
 	}
 
 	// 3: drop original table
-	err = store.exec(fmt.Sprintf("DROP TABLE `%s`", table)) // #nosec
-	if err != nil {
-		return err
-	}
-
-	// 4: rename new virtual table to origin table
-	return store.exec(fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", tmpTable, table)) // #nosec
+	return store.exec(fmt.Sprintf("DROP TABLE `%s`", tmpTable)) // #nosec
 }
 
 // SetSchema inserts or replaces a json schema for input validation.
