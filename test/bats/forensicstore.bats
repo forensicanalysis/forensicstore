@@ -114,7 +114,7 @@ teardown() {
     run forensicstore element insert '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
-    run forensicstore element insert '{"type": "foo", "foo": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/example1.forensicstore
+    run forensicstore element insert '{"type": "foo", "foo_x": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' $TESTDIR/example1.forensicstore
     [ "$status" -eq 0 ]
 
     # 8 elements should be in the store now
@@ -135,7 +135,7 @@ teardown() {
     # verify inserted element with id 11
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "foo": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "foo_x": "bar", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286818"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     [ "$status" -eq 0 ]
