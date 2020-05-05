@@ -52,18 +52,6 @@ import (
 
 const forensicstoreVersion = 2
 const elementaryApplicationID = 1701602669
-
-const (
-	// integer represents the SQL INTEGER type
-	integer = "INTEGER"
-	// numeric represents the SQL NUMERIC type
-	numeric = "NUMERIC"
-	// text represents the SQL TEXT type
-	text = "TEXT"
-	// blob represents the SQL BLOB type
-	// blob = "BLOB"
-)
-
 const discriminator = "type"
 
 // The ForensicStore is a central storage for elements in digital forensic
@@ -688,7 +676,6 @@ func (store *ForensicStore) All() (elements []Element, err error) {
 ################################ */
 
 func (store *ForensicStore) rowsToElements(stmt *sqlite.Stmt) (elements []Element, err error) {
-
 	elements = []Element{}
 
 	for {
@@ -886,19 +873,19 @@ func (store *ForensicStore) addMissingColumns(table string, oldColumns, newColum
 
 	// 2: Fill new virtual table with data
 	cw := strings.Join(oldColumnsWrap, ",")
-	err = store.exec(fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM `%s`", tmpTable, cw, table))
+	err = store.exec(fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM `%s`", tmpTable, cw, table)) // #nosec
 	if err != nil {
 		return err
 	}
 
 	// 3: drop original table
-	err = store.exec(fmt.Sprintf("DROP TABLE `%s`", table))
+	err = store.exec(fmt.Sprintf("DROP TABLE `%s`", table)) // #nosec
 	if err != nil {
 		return err
 	}
 
 	// 4: rename new virtual table to origin table
-	return store.exec(fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", tmpTable, table))
+	return store.exec(fmt.Sprintf("ALTER TABLE `%s` RENAME TO `%s`", tmpTable, table)) // #nosec
 }
 
 // SetSchema inserts or replaces a json schema for input validation.
