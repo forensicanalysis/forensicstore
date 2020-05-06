@@ -39,12 +39,11 @@ func Example() {
 	}{Data: "secret", Type: "test"}
 
 	// insert struct into forensicstore
-	id, _ := store.InsertStruct(evidence)
+	store.InsertStruct(evidence)
 
 	// get element from forensicstore
-	element, _ := store.Get(id)
+	elements, _ := store.Search("secret")
 
 	// access element's data
-	fmt.Println(element)
-	// Result: {Data: "secret", Type: "test"}
+	fmt.Println(elements)
 }

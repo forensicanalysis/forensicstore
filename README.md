@@ -10,10 +10,7 @@
 
 The forensicstore project can create,
 access and process forensic artifacts bundled in so called forensicstores
-(a database for metadata and subfolders with forensic artifacts).
-
-
-Package forensicstore provides functions to handle forensicstores.
+(a database for forensic artifacts).
 
 
 
@@ -50,13 +47,13 @@ func main() {
 	}{Data: "secret", Type: "test"}
 
 	// insert struct into forensicstore
-	id, _ := store.InsertStruct(evidence)
+	store.InsertStruct(evidence)
 
 	// get element from forensicstore
-	element, _ := store.Get(id)
+	elements, _ := store.Search("secret")
 
 	// access element's data
-	fmt.Println(element["data"])
+	fmt.Println(elements)
 }
 
 ```

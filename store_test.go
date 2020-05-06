@@ -67,7 +67,7 @@ var (
 )
 
 func TestExtract(t *testing.T) {
-	store := setupUrl(t, "test.store")
+	store := setupUrl(t, "test.forensicstore")
 	defer store.Close()
 }
 
@@ -383,6 +383,34 @@ func TestStore_QueryStore(t *testing.T) {
 			gotElements, err := store.Query(tt.args.query)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ForensicStore.Query() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.JSONEq(t, string(tt.wantElements[0]), string(gotElements[0]))
+		})
+	}
+}
+
+
+func TestStore_Search(t *testing.T) {
+	store := setup(t)
+	defer store.Close()
+
+	type args struct {
+		query string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantElements []JSONElement
+		wantErr      bool
+	}{
+		{"Search", args{"IPTablesRules"}, []JSONElement{ProcessElement}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotElements, err := store.Search(tt.args.query)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ForensicStore.Search() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.JSONEq(t, string(tt.wantElements[0]), string(gotElements[0]))

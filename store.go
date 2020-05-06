@@ -23,7 +23,7 @@
 
 // Package forensicstore can create,
 // access and process forensic artifacts bundled in so called forensicstores
-// (a database for metadata and subfolders with forensic artifacts).
+// (a database for forensic artifacts).
 package forensicstore
 
 import (
@@ -575,7 +575,6 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 						continue
 					}
 
-					fmt.Println(exportPath)
 					f, err := store.fs.Open(exportPath)
 					if err != nil {
 						return nil, nil, err
@@ -642,12 +641,19 @@ func (store *ForensicStore) Select(conditions []map[string]string) (elements []J
 
 	stmt, err := store.cursor.Prepare(query) // #nosec
 	if err != nil {
-		if strings.Contains(err.Error(), "no such table") {
-			return nil, nil
-		}
 		return nil, err
 	}
 
+	return store.rowsToElements(stmt)
+}
+
+// Search for elements
+func (store *ForensicStore) Search(q string) (elements []JSONElement, err error) {
+	stmt, err := store.cursor.Prepare("SELECT json FROM elements WHERE elements = $query")
+	if err != nil {
+		return nil, err
+	}
+	stmt.SetText("$query", q)
 	return store.rowsToElements(stmt)
 }
 
