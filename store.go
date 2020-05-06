@@ -31,7 +31,6 @@ import (
 	"crypto/sha1" // #nosec
 	"encoding/json"
 	"fmt"
-	"github.com/tidwall/gjson"
 	"hash"
 	"io"
 	"log"
@@ -48,6 +47,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/qri-io/jsonschema"
 	"github.com/spf13/afero"
+	"github.com/tidwall/gjson"
 
 	"github.com/forensicanalysis/forensicstore/goflatten"
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
@@ -437,11 +437,10 @@ func (store *ForensicStore) createViews() error {
 			columns = append(columns, fmt.Sprintf("json_extract(json, '$.%s') as '%s'", field, field))
 		}
 		sort.Strings(columns)
-		err = store.exec(
-			fmt.Sprintf( // #nosec
-				"CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
-				typeName, strings.Join(columns, ", "), discriminator, typeName),
-		)
+		query := fmt.Sprintf(
+			"CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
+			typeName, strings.Join(columns, ", "), discriminator, typeName) // #nosec
+		err = store.exec(query)                                             // #nosec
 		if err != nil {
 			return err
 		}
