@@ -45,6 +45,6 @@ func Example() {
 	element, _ := store.Get(id)
 
 	// access element's data
-	fmt.Println(element["data"])
-	// Output: secret
+	fmt.Println(element)
+	// Result: {Data: "secret", Type: "test"}
 }

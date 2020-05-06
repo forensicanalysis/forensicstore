@@ -21,7 +21,6 @@
  * Author(s): Jonas Plum
  */
 
-// Package forensicstore provides functions to handle forensicstores.
 package forensicstore
 
 import (

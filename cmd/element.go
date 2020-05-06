@@ -67,7 +67,7 @@ func selectCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.Select(elementType, nil)
+			element, err := store.Select([]map[string]string{{"type": elementType}})
 			if err != nil {
 				return err
 			}
@@ -116,14 +116,7 @@ func insertCommand() *cobra.Command {
 			}
 			defer store.Close()
 
-			element := map[string]interface{}{}
-			err = json.Unmarshal([]byte(jsonData), &element)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-
-			elementID, err := store.Insert(element)
+			elementID, err := store.Insert([]byte(jsonData))
 			if err != nil {
 				fmt.Println(err)
 				return err
