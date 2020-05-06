@@ -41,6 +41,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"crawshaw.io/sqlite"
 	"github.com/fatih/structs"
@@ -67,7 +68,7 @@ const discriminator = "type"
 type ForensicStore struct {
 	fs          afero.Fs
 	cursor      *sqlite.Conn
-	tables      *tableMap
+	types       *typeMap
 	schemas     *schemaMap
 	columnMutex sync.Mutex
 }
@@ -147,16 +148,17 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 
 	store := &ForensicStore{}
 
-	fs, err := sqlitefs.New(url)
-	if err != nil {
-		return nil, err
-	}
-	store.fs = fs
-
+	var err error
 	store.cursor, err = sqlite.OpenConn(url, 0)
 	if err != nil {
 		return nil, err
 	}
+
+	fs, err := sqlitefs.NewCursor(store.cursor)
+	if err != nil {
+		return nil, err
+	}
+	store.fs = fs
 
 	if create {
 		err = setPragma(store.cursor, "application_id", elementaryApplicationID)
@@ -170,7 +172,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 		}
 
 		err = store.exec("CREATE VIRTUAL TABLE `elements` " +
-			"USING fts5(id, json, tokenize=\"unicode61 tokenchars '/.'\")")
+			"USING fts5(id UNINDEXED, json, insert_time UNINDEXED, tokenize=\"unicode61 tokenchars '/.'\")")
 		if err != nil {
 			return nil, err
 		}
@@ -194,22 +196,14 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 		}
 	}
 
-	store.schemas = newSchemaMap()
-
-	store.tables = newTableMap()
-
-	tables, err := store.getTables()
+	store.types = newTypeMap()
+	err = store.setupTypes()
 	if err != nil {
 		return nil, err
 	}
-	for tableName, columns := range tables {
-		for _, column := range columns {
-			store.tables.add(tableName, column)
-		}
-	}
 
+	store.schemas = newSchemaMap()
 	nameTitle := map[string]string{}
-
 	// unmarshal schemas
 	for name, content := range stixgo.FS {
 		schema := &jsonschema.RootSchema{}
@@ -263,9 +257,6 @@ func (store *ForensicStore) SetFS(fs afero.Fs) {
 
 // Insert adds a single element.
 func (store *ForensicStore) Insert(element JSONElement) (string, error) {
-	var columnNames []string
-	var columnValues []interface{}
-
 	// validate element
 	valErr, err := store.validateElementSchema(element)
 	if err != nil {
@@ -305,46 +296,21 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 			return "", err
 		}
 	}
-	for field := range flatElement {
-		columnNames = append(columnNames, field)
-		columnValues = append(columnValues, flatElement[field])
-	}
-	if err := store.ensureTable(elementType.(string), flatElement); err != nil {
-		return "", errors.Wrap(err, "could not ensure table")
-	}
+
+	store.types.addAll(elementType.(string), flatElement)
 
 	// insert into elements table
-	query := fmt.Sprintf("INSERT INTO `elements` (id, json) VALUES ($id, $json)") // #nosec
+	query := fmt.Sprintf("INSERT INTO `elements` (id, json, insert_time) VALUES ($id, $json, $time)") // #nosec
 	stmt, err := store.cursor.Prepare(query)
 	if err != nil {
 		return "", errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
 	}
 	stmt.SetText("$id", id.(string))
 	stmt.SetText("$json", string(element))
+	stmt.SetText("$time", time.Now().Format("2006-01-02T15:04:05.000Z"))
 	_, err = stmt.Step()
 	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprint("could not exec statement", query, columnValues))
-	}
-
-	// insert into single table
-	query = fmt.Sprintf(
-		"INSERT INTO `%s`(%s) VALUES %s",
-		elementType.(string),
-		`"`+strings.Join(columnNames, `","`)+`"`,
-		"("+strings.Repeat("?,", len(flatElement)-1)+"?)",
-	) // #nosec
-	stmt, err = store.cursor.Prepare(query)
-	if err != nil {
-		log.Println(err)
-		return id.(string), nil
-	}
-	j := sqlite.BindIncrementor()
-	for _, columnValue := range columnValues {
-		stmt.BindText(j(), fmt.Sprint(columnValue))
-	}
-	_, err = stmt.Step()
-	if err != nil {
-		log.Println(err)
+		return "", errors.Wrap(err, fmt.Sprint("could not exec statement", query))
 	}
 
 	return id.(string), nil
@@ -456,10 +422,33 @@ func (store *ForensicStore) LoadFile(filePath string) (file io.ReadCloser, err e
 
 // Close saves and closes the database.
 func (store *ForensicStore) Close() error {
-	if closer, ok := store.fs.(io.Closer); ok {
-		_ = closer.Close()
+	if store.types.changed {
+		_ = store.createViews()
 	}
+
 	return store.cursor.Close()
+}
+
+func (store *ForensicStore) createViews() error {
+	for typeName, fields := range store.types.all() {
+		err := store.exec(fmt.Sprintf("DROP VIEW IF EXISTS '%s'", typeName))
+		if err != nil {
+			return err
+		}
+		var columns []string
+		for field := range fields {
+			columns = append(columns, fmt.Sprintf("json_extract(json, '$.%s') as '%s'", field, field))
+		}
+		sort.Strings(columns)
+		err = store.exec(
+			fmt.Sprintf("CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
+				typeName, strings.Join(columns, ", "), discriminator, typeName),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 /* ################################
@@ -691,6 +680,9 @@ func isElementTable(name string) bool {
 	if name == "sqlar" {
 		return false
 	}
+	if name == "elements" {
+		return false
+	}
 
 	for _, suffix := range []string{"_data", "_idx", "_content", "_docsize", "_config"} {
 		if strings.HasSuffix(name, suffix) {
@@ -700,17 +692,15 @@ func isElementTable(name string) bool {
 	return true
 }
 
-func (store *ForensicStore) getTables() (map[string][]string, error) {
+func (store *ForensicStore) setupTypes() error {
 	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master")
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	tables := map[string][]string{}
 
 	for {
 		if hasRow, err := stmt.Step(); err != nil {
-			return nil, err
+			return err
 		} else if !hasRow {
 			break
 		}
@@ -721,91 +711,28 @@ func (store *ForensicStore) getTables() (map[string][]string, error) {
 			continue
 		}
 
-		tables[name] = []string{}
-
 		pragmaStmt, err := store.cursor.Prepare(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		for {
 			if pragmaHasRow, err := pragmaStmt.Step(); err != nil {
-				return nil, err
+				return err
 			} else if !pragmaHasRow {
 				break
 			}
 
 			columnName := pragmaStmt.GetText("name")
-			// columnType := pragmaStmt.GetText("type")
-			tables[name] = append(tables[name], columnName)
+			store.types.add(name, columnName)
 		}
 		err = pragmaStmt.Finalize()
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	for table := range tables {
-		sort.Strings(tables[table])
-	}
-
-	return tables, stmt.Finalize()
-}
-
-func (store *ForensicStore) ensureTable(name string, flatElement Element) error {
-	store.columnMutex.Lock()
-	defer store.columnMutex.Unlock()
-	if columns, ok := store.tables.load(name); !ok {
-		if err := store.createTable(name, flatElement); err != nil {
-			return errors.Wrap(err, "create table failed")
-		}
-	} else {
-		var missingColumns []string
-		for attribute := range flatElement {
-			if _, ok := columns[attribute]; !ok {
-				missingColumns = append(missingColumns, attribute)
-			}
-		}
-		var existingColumns []string
-		for column := range columns {
-			existingColumns = append(existingColumns, column)
-		}
-
-		if len(missingColumns) > 0 {
-			if err := store.addMissingColumns(name, flatElement, missingColumns); err != nil {
-				return errors.Wrap(err, fmt.Sprintf("adding missing column failed %v", missingColumns))
-			}
-		}
-	}
-	return nil
-}
-
-func (store *ForensicStore) createTable(name string, flatElement Element) error {
-	store.tables.add(name, "id")
-	store.tables.add(name, discriminator)
-
-	columns := []string{"id TEXT PRIMARY KEY", discriminator + " TEXT NOT NULL"}
-	for columnName := range flatElement {
-		if columnName != "id" && columnName != discriminator {
-			sqlDataType := getSQLDataType(flatElement[columnName])
-			store.tables.add(flatElement[discriminator].(string), columnName)
-			columns = append(columns, fmt.Sprintf("`%s` %s", columnName, sqlDataType))
-		}
-	}
-	columnText := strings.Join(columns, ", ")
-
-	return store.exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS `%s` (%s)", flatElement[discriminator], columnText))
-}
-
-func getSQLDataType(value interface{}) string {
-	switch value.(type) {
-	case int, int16, int8, int32, int64, uint, uint16, uint8, uint32, uint64:
-		return "INTEGER"
-	case float32, float64:
-		return "NUMERIC"
-	default:
-		return "TEXT"
-	}
+	return stmt.Finalize()
 }
 
 func (store *ForensicStore) exec(query string) error {
@@ -820,19 +747,6 @@ func (store *ForensicStore) exec(query string) error {
 	}
 
 	return stmt.Finalize()
-}
-
-func (store *ForensicStore) addMissingColumns(table string, columns map[string]interface{}, newColumns []string) error {
-	sort.Strings(newColumns)
-	for _, newColumn := range newColumns {
-		sqlDataType := getSQLDataType(columns[newColumn])
-		store.tables.add(table, newColumn)
-		err := store.exec(fmt.Sprintf("ALTER TABLE \"%s\" ADD COLUMN \"%s\" %s", table, newColumn, sqlDataType))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // SetSchema inserts or replaces a json schema for input validation.

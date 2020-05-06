@@ -13,7 +13,8 @@ import (
 )
 
 type FS struct {
-	cursor *sqlite.Conn
+	cursor      *sqlite.Conn
+	closeCursor bool
 }
 
 const table = `CREATE TABLE IF NOT EXISTS sqlar(
@@ -26,7 +27,7 @@ const table = `CREATE TABLE IF NOT EXISTS sqlar(
 
 func New(url string) (*FS, error) {
 	var err error
-	fs := &FS{}
+	fs := &FS{closeCursor: true}
 
 	fs.cursor, err = sqlite.OpenConn(url, 0)
 	if err != nil {
@@ -35,6 +36,14 @@ func New(url string) (*FS, error) {
 
 	stmt := fs.cursor.Prep(table)
 	err = exec(stmt)
+
+	return fs, err
+}
+
+func NewCursor(conn *sqlite.Conn) (*FS, error) {
+	fs := &FS{cursor: conn, closeCursor: false}
+	stmt := fs.cursor.Prep(table)
+	err := exec(stmt)
 
 	return fs, err
 }
@@ -249,7 +258,10 @@ func (fs *FS) Stat(name string) (os.FileInfo, error) {
 }
 
 func (fs *FS) Close() error {
-	return fs.cursor.Close()
+	if fs.closeCursor {
+		return fs.cursor.Close()
+	}
+	return nil
 }
 
 type Info struct {

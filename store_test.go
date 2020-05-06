@@ -66,8 +66,17 @@ var (
 	}`)
 )
 
+func TestExtract(t *testing.T) {
+	store := setupUrl(t, "test.store")
+	defer store.Close()
+}
+
 func setup(t *testing.T) *ForensicStore {
-	store, err := New(":memory:")
+	return setupUrl(t, ":memory:")
+}
+
+func setupUrl(t *testing.T, url string) *ForensicStore {
+	store, err := New(url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +206,10 @@ func setup(t *testing.T) *ForensicStore {
 
 	f, _ := store.fs.Create("/WindowsAMCacheHveFile/Amcache.hve")
 	f.WriteString(strings.Repeat("A", 123))
-	f.Close()
+	err = f.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, name := range []string{
 		"/IPTablesRules/stderr",
@@ -213,20 +225,6 @@ func setup(t *testing.T) *ForensicStore {
 	}
 
 	return store
-}
-
-func copyFile(t *testing.T, src, dst string) {
-	input, err := ioutil.ReadFile(src)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = os.MkdirAll(filepath.Dir(dst), 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile(dst, input, 0644); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestNew(t *testing.T) {

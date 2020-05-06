@@ -29,30 +29,47 @@ import (
 	"github.com/qri-io/jsonschema"
 )
 
-type tableMap struct {
+type typeMap struct {
 	sync.RWMutex
-	tables map[string]map[string]bool
+	changed bool
+	types   map[string]map[string]bool
 }
 
-func newTableMap() *tableMap {
-	return &tableMap{
-		tables: map[string]map[string]bool{},
+func newTypeMap() *typeMap {
+	return &typeMap{
+		changed: false,
+		types:   map[string]map[string]bool{},
 	}
 }
 
-func (rm *tableMap) load(name string) (columns map[string]bool, ok bool) {
-	rm.RLock()
-	columns, ok = rm.tables[name]
-	rm.RUnlock()
-	return columns, ok
+func (rm *typeMap) all() map[string]map[string]bool {
+	return rm.types
 }
 
-func (rm *tableMap) add(name, column string) {
+func (rm *typeMap) add(name, field string) {
 	rm.Lock()
-	if _, ok := rm.tables[name]; !ok {
-		rm.tables[name] = map[string]bool{}
+	if _, ok := rm.types[name]; !ok {
+		rm.types[name] = map[string]bool{}
 	}
-	rm.tables[name][column] = true
+	if _, ok := rm.types[name][field]; !ok {
+		rm.types[name][field] = true
+		rm.changed = true
+	}
+
+	rm.Unlock()
+}
+
+func (rm *typeMap) addAll(name string, fields map[string]interface{}) {
+	rm.Lock()
+	if _, ok := rm.types[name]; !ok {
+		rm.types[name] = map[string]bool{}
+	}
+	for field := range fields {
+		if _, ok := rm.types[name][field]; !ok {
+			rm.types[name][field] = true
+			rm.changed = true
+		}
+	}
 	rm.Unlock()
 }
 
