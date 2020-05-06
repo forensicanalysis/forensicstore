@@ -40,7 +40,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"crawshaw.io/sqlite"
@@ -66,11 +65,10 @@ const discriminator = "type"
 // objects like files are usually stored outside the forensicstore and references
 // from the forensicstore.
 type ForensicStore struct {
-	fs          afero.Fs
-	cursor      *sqlite.Conn
-	types       *typeMap
-	schemas     *schemaMap
-	columnMutex sync.Mutex
+	fs      afero.Fs
+	cursor  *sqlite.Conn
+	types   *typeMap
+	schemas *schemaMap
 }
 
 var ErrStoreExists = fmt.Errorf("store already exists")
@@ -112,7 +110,6 @@ func setPragma(conn *sqlite.Conn, name string, i int64) error {
 }
 
 func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,funlen,gocognit
-
 	if url != ":memory:" {
 		url = strings.TrimRight(url, "/")
 
@@ -441,7 +438,8 @@ func (store *ForensicStore) createViews() error {
 		}
 		sort.Strings(columns)
 		err = store.exec(
-			fmt.Sprintf("CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
+			fmt.Sprintf( // #nosec
+				"CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
 				typeName, strings.Join(columns, ", "), discriminator, typeName),
 		)
 		if err != nil {
@@ -647,7 +645,7 @@ func (store *ForensicStore) Select(conditions []map[string]string) (elements []J
 	return store.rowsToElements(stmt)
 }
 
-// Search for elements
+// Search for elements.
 func (store *ForensicStore) Search(q string) (elements []JSONElement, err error) {
 	stmt, err := store.cursor.Prepare("SELECT json FROM elements WHERE elements = $query")
 	if err != nil {
