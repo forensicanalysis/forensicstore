@@ -22,7 +22,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -43,12 +42,11 @@ func getCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.Get(id)
+			elements, err := store.Get(id)
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			fmt.Printf("%s\n", elements)
 			return nil
 		},
 	}
@@ -67,12 +65,11 @@ func selectCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.Select([]map[string]string{{"type": elementType}})
+			elements, err := store.Select([]map[string]string{{"type": elementType}})
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			fmt.Printf("%s\n", elements)
 			return nil
 		},
 	}
@@ -90,12 +87,11 @@ func allCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.All()
+			elements, err := store.All()
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			fmt.Printf("%s\n", elements)
 			return nil
 		},
 	}
