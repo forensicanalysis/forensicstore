@@ -156,7 +156,7 @@ teardown() {
     # verify inserted element with id 10
     forensicstore element get foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817 $TESTDIR/example1.forensicstore > $TESTDIR/a.json
 
-    echo '{"type": "foo", "size": "0", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
+    echo '{"type": "foo", "size": 0, "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
     echo $output
@@ -181,6 +181,7 @@ teardown() {
     echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
+    echo $output
     [ "$status" -eq 0 ]
 }
 
@@ -202,6 +203,7 @@ teardown() {
     echo '{"type": "foo", "id": "foo--16b02a2b-d1a1-4e79-aad6-2f2c1c286817"}' > $TESTDIR/b.json
 
     run diff <(jq -S . $TESTDIR/a.json) <(jq -S . $TESTDIR/b.json)
+    echo $output
     [ "$status" -eq 0 ]
 }
 
