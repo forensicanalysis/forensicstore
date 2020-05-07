@@ -69,7 +69,7 @@ func selectCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s\n", elements)
+			printElements(elements)
 			return nil
 		},
 	}
@@ -91,7 +91,7 @@ func allCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s\n", elements)
+			printElements(elements)
 			return nil
 		},
 	}
@@ -121,4 +121,15 @@ func insertCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func printElements(elements []forensicstore.JSONElement) {
+	fmt.Print("[")
+	for i, element := range elements {
+		if i != 0 {
+			fmt.Print(",")
+		}
+		fmt.Print(string(element))
+	}
+	fmt.Print("]")
 }
