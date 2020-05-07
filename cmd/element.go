@@ -22,7 +22,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -43,12 +42,11 @@ func getCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.Get(id)
+			elements, err := store.Get(id)
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			fmt.Printf("%s\n", elements)
 			return nil
 		},
 	}
@@ -67,12 +65,11 @@ func selectCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.Select(elementType, nil)
+			elements, err := store.Select([]map[string]string{{"type": elementType}})
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			printElements(elements)
 			return nil
 		},
 	}
@@ -90,12 +87,11 @@ func allCommand() *cobra.Command {
 				return err
 			}
 			defer store.Close()
-			element, err := store.All()
+			elements, err := store.All()
 			if err != nil {
 				return err
 			}
-			b, _ := json.Marshal(element)
-			fmt.Printf("%s\n", b)
+			printElements(elements)
 			return nil
 		},
 	}
@@ -116,14 +112,7 @@ func insertCommand() *cobra.Command {
 			}
 			defer store.Close()
 
-			element := map[string]interface{}{}
-			err = json.Unmarshal([]byte(jsonData), &element)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-
-			elementID, err := store.Insert(element)
+			elementID, err := store.Insert([]byte(jsonData))
 			if err != nil {
 				fmt.Println(err)
 				return err
@@ -132,4 +121,15 @@ func insertCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func printElements(elements []forensicstore.JSONElement) {
+	fmt.Print("[")
+	for i, element := range elements {
+		if i != 0 {
+			fmt.Print(",")
+		}
+		fmt.Print(string(element))
+	}
+	fmt.Print("]")
 }

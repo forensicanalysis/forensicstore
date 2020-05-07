@@ -29,7 +29,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// Element is a single entry in the database.
+// JSONElement is a single entry in the database.
+type JSONElement []byte
+
 type Element map[string]interface{}
 
 // File implements a STIX 2.1 File Object
