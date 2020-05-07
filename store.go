@@ -439,8 +439,10 @@ func (store *ForensicStore) createViews() error {
 		sort.Strings(columns)
 		query := fmt.Sprintf(
 			"CREATE VIEW '%s' AS SELECT %s FROM elements WHERE json_extract(json, '$.%s') = '%s'",
-			typeName, strings.Join(columns, ", "), discriminator, typeName) // #nosec
-		err = store.exec(query)                                             // #nosec
+			typeName, strings.Join(columns, ", "), discriminator, typeName,
+		) // #nosec
+
+		err = store.exec(query) // #nosec
 		if err != nil {
 			return err
 		}
