@@ -304,7 +304,7 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 	}
 	stmt.SetText("$id", id.(string))
 	stmt.SetText("$json", string(element))
-	stmt.SetText("$time", time.Now().Format("2006-01-02T15:04:05.000Z"))
+	stmt.SetText("$time", time.Now().UTC().Format(time.RFC3339Nano))
 	_, err = stmt.Step()
 	if err != nil {
 		return "", errors.Wrap(err, fmt.Sprint("could not exec statement", query))
