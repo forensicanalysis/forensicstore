@@ -65,10 +65,10 @@ const discriminator = "type"
 // objects like files are usually stored outside the forensicstore and references
 // from the forensicstore.
 type ForensicStore struct {
-	fs      afero.Fs
-	cursor  *sqlite.Conn
-	types   *typeMap
-	schemas *schemaMap
+	fs         afero.Fs
+	connection *sqlite.Conn
+	types      *typeMap
+	schemas    *schemaMap
 }
 
 var ErrStoreExists = fmt.Errorf("store already exists")
@@ -146,24 +146,24 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	store := &ForensicStore{}
 
 	var err error
-	store.cursor, err = sqlite.OpenConn(url, 0)
+	store.connection, err = sqlite.OpenConn(url, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	fs, err := sqlitefs.NewCursor(store.cursor)
+	fs, err := sqlitefs.NewCursor(store.connection)
 	if err != nil {
 		return nil, err
 	}
 	store.fs = fs
 
 	if create {
-		err = setPragma(store.cursor, "application_id", elementaryApplicationID)
+		err = setPragma(store.connection, "application_id", elementaryApplicationID)
 		if err != nil {
 			return nil, err
 		}
 
-		err = setPragma(store.cursor, "user_version", forensicstoreVersion)
+		err = setPragma(store.connection, "user_version", forensicstoreVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +174,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 			return nil, err
 		}
 	} else {
-		applicationID, err := pragma(store.cursor, "application_id")
+		applicationID, err := pragma(store.connection, "application_id")
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +183,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 			return nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
 		}
 
-		version, err := pragma(store.cursor, "user_version")
+		version, err := pragma(store.connection, "user_version")
 		if err != nil {
 			return nil, err
 		}
@@ -248,6 +248,10 @@ func (store *ForensicStore) SetFS(fs afero.Fs) {
 	store.fs = fs
 }
 
+func (store *ForensicStore) Connection() *sqlite.Conn {
+	return store.connection
+}
+
 /* ################################
 #   API
 ################################ */
@@ -298,7 +302,7 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 
 	// insert into elements table
 	query := fmt.Sprintf("INSERT INTO `elements` (id, json, insert_time) VALUES ($id, $json, $time)") // #nosec
-	stmt, err := store.cursor.Prepare(query)
+	stmt, err := store.connection.Prepare(query)
 	if err != nil {
 		return "", errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
 	}
@@ -356,7 +360,7 @@ func (store *ForensicStore) InsertStructBatch(elements []interface{}) ([]string,
 
 // Get retreives a single element.
 func (store *ForensicStore) Get(id string) (element JSONElement, err error) {
-	stmt, err := store.cursor.Prepare(fmt.Sprintf("SELECT json FROM `elements` WHERE id=?")) // #nosec
+	stmt, err := store.connection.Prepare(fmt.Sprintf("SELECT json FROM `elements` WHERE id=?")) // #nosec
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +379,7 @@ func (store *ForensicStore) Get(id string) (element JSONElement, err error) {
 
 // Query executes a sql query.
 func (store *ForensicStore) Query(query string) (elements []JSONElement, err error) {
-	stmt, err := store.cursor.Prepare(query)
+	stmt, err := store.connection.Prepare(query)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +427,7 @@ func (store *ForensicStore) Close() error {
 		_ = store.createViews()
 	}
 
-	return store.cursor.Close()
+	return store.connection.Close()
 }
 
 func (store *ForensicStore) createViews() error {
@@ -638,7 +642,7 @@ func (store *ForensicStore) Select(conditions []map[string]string) (elements []J
 		query += fmt.Sprintf(" WHERE %s", strings.Join(ors, " OR ")) // #nosec
 	}
 
-	stmt, err := store.cursor.Prepare(query) // #nosec
+	stmt, err := store.connection.Prepare(query) // #nosec
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +652,7 @@ func (store *ForensicStore) Select(conditions []map[string]string) (elements []J
 
 // Search for elements.
 func (store *ForensicStore) Search(q string) (elements []JSONElement, err error) {
-	stmt, err := store.cursor.Prepare("SELECT json FROM elements WHERE elements = $query")
+	stmt, err := store.connection.Prepare("SELECT json FROM elements WHERE elements = $query")
 	if err != nil {
 		return nil, err
 	}
@@ -698,7 +702,7 @@ func isElementTable(name string) bool {
 }
 
 func (store *ForensicStore) setupTypes() error {
-	stmt, err := store.cursor.Prepare("SELECT name FROM sqlite_master")
+	stmt, err := store.connection.Prepare("SELECT name FROM sqlite_master")
 	if err != nil {
 		return err
 	}
@@ -716,7 +720,7 @@ func (store *ForensicStore) setupTypes() error {
 			continue
 		}
 
-		pragmaStmt, err := store.cursor.Prepare(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
+		pragmaStmt, err := store.connection.Prepare(fmt.Sprintf("PRAGMA table_info (\"%s\")", name))
 		if err != nil {
 			return err
 		}
@@ -741,7 +745,7 @@ func (store *ForensicStore) setupTypes() error {
 }
 
 func (store *ForensicStore) exec(query string) error {
-	stmt, err := store.cursor.Prepare(query)
+	stmt, err := store.connection.Prepare(query)
 	if err != nil {
 		return err
 	}
