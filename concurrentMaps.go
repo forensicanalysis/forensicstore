@@ -43,6 +43,8 @@ func newTypeMap() *typeMap {
 }
 
 func (rm *typeMap) all() map[string]map[string]bool {
+	rm.Lock()
+	defer rm.Unlock()
 	return rm.types
 }
 
