@@ -37,8 +37,8 @@ import (
 
 func main() {
 	// create forensicstore
-	store, _ := forensicstore.New("example.forensicstore")
-	defer store.Close()
+	store, teardown, _ := forensicstore.New("example.forensicstore")
+	defer teardown()
 
 	// create a struct
 	evidence := struct {

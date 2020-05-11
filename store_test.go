@@ -67,16 +67,16 @@ var (
 )
 
 func TestExtract(t *testing.T) {
-	store := setupUrl(t, "test.forensicstore")
-	defer store.Close()
+	_, teardown := setupUrl(t, "test.forensicstore")
+	defer teardown()
 }
 
-func setup(t *testing.T) *ForensicStore {
+func setup(t *testing.T) (*ForensicStore, func() error) {
 	return setupUrl(t, ":memory:")
 }
 
-func setupUrl(t *testing.T, url string) *ForensicStore {
-	store, err := New(url)
+func setupUrl(t *testing.T, url string) (*ForensicStore, func() error) {
+	store, teardown, err := New(url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func setupUrl(t *testing.T, url string) *ForensicStore {
 		f.Close()
 	}
 
-	return store
+	return store, teardown
 }
 
 func TestNew(t *testing.T) {
@@ -246,8 +246,8 @@ func TestNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store, err := New(tt.args.url)
-			defer store.Close()
+			_, teardown, err := New(tt.args.url)
+			defer teardown()
 			defer os.Remove(tt.args.url)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
@@ -258,8 +258,8 @@ func TestNew(t *testing.T) {
 }
 
 func TestStore_Insert(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	foo := jsons(element{"name": "foo", "type": "fo", "int": 0})
 	bar := jsons(element{"name": "bar", "type": "ba", "int": 2})
@@ -295,8 +295,8 @@ func TestStore_Insert(t *testing.T) {
 }
 
 func TestForensicStore_InsertStruct(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	myfile := NewFile()
 	myfile.Name = "test.txt"
@@ -332,8 +332,8 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 }
 
 func TestStore_Get(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	type args struct {
 		id string
@@ -363,8 +363,8 @@ func TestStore_Get(t *testing.T) {
 }
 
 func TestStore_QueryStore(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	type args struct {
 		query string
@@ -390,10 +390,9 @@ func TestStore_QueryStore(t *testing.T) {
 	}
 }
 
-
 func TestStore_Search(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	type args struct {
 		query string
@@ -419,8 +418,8 @@ func TestStore_Search(t *testing.T) {
 }
 
 func TestStore_Select(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	type args struct {
 		conditions []map[string]string
@@ -449,8 +448,8 @@ func TestStore_Select(t *testing.T) {
 }
 
 func TestStore_All(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	tests := []struct {
 		name         string
@@ -473,8 +472,8 @@ func TestStore_All(t *testing.T) {
 }
 
 func TestStore_Validate(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	tests := []struct {
 		name    string
@@ -498,8 +497,8 @@ func TestStore_Validate(t *testing.T) {
 }
 
 func TestStore_validateElementSchema(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	testElement1 := jsons(map[string]interface{}{
 		"id":   "file--920d7c41-0fef-4cf8-bce2-ead120f6b506",
@@ -542,8 +541,8 @@ func TestStore_validateElementSchema(t *testing.T) {
 }
 
 func TestStore_StoreFile(t *testing.T) {
-	store := setup(t)
-	defer store.Close()
+	store, teardown := setup(t)
+	defer teardown()
 
 	type args struct {
 		filePath string

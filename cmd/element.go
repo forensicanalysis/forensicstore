@@ -37,11 +37,11 @@ func getCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.Open(storeName)
+			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
-			defer store.Close()
+			defer teardown()
 			elements, err := store.Get(id)
 			if err != nil {
 				return err
@@ -60,11 +60,11 @@ func selectCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			elementType := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.Open(storeName)
+			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
-			defer store.Close()
+			defer teardown()
 			elements, err := store.Select([]map[string]string{{"type": elementType}})
 			if err != nil {
 				return err
@@ -82,11 +82,11 @@ func allCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := forensicstore.Open(storeName)
+			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
 				return err
 			}
-			defer store.Close()
+			defer teardown()
 			elements, err := store.All()
 			if err != nil {
 				return err
@@ -105,12 +105,12 @@ func insertCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsonData := cmd.Flags().Args()[0]
 			storeName := cmd.Flags().Args()[1]
-			store, err := forensicstore.Open(storeName)
+			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err
 			}
-			defer store.Close()
+			defer teardown()
 
 			elementID, err := store.Insert([]byte(jsonData))
 			if err != nil {
