@@ -49,7 +49,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tidwall/gjson"
 
-	"github.com/forensicanalysis/forensicstore/goflatten"
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
 	"github.com/forensicanalysis/stixgo"
 )
@@ -274,23 +273,17 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 		return "", err
 	}
 
-	// flatten element
-	flatElement, err := goflatten.Flatten(nestedElement)
-	if err != nil {
-		return "", errors.Wrap(err, "could not flatten element")
-	}
-
-	elementType, ok := flatElement["type"]
+	elementType, ok := nestedElement["type"]
 	if !ok {
 		return "", errors.New("element requires type")
 	}
-	if _, ok := flatElement[elementType.(string)]; ok {
+	if _, ok := nestedElement[elementType.(string)]; ok {
 		return "", fmt.Errorf("element must not contain a field '%s'", elementType)
 	}
-	id, ok := flatElement["id"]
+	id, ok := nestedElement["id"]
 	if !ok {
 		id = elementType.(string) + "--" + uuid.New().String()
-		flatElement["id"] = id
+		nestedElement["id"] = id
 
 		element, err = json.Marshal(nestedElement)
 		if err != nil {
@@ -298,7 +291,7 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 		}
 	}
 
-	store.types.addAll(elementType.(string), flatElement)
+	store.types.addAll(elementType.(string), nestedElement)
 
 	// insert into elements table
 	query := fmt.Sprintf("INSERT INTO `elements` (id, json, insert_time) VALUES ($id, $json, $time)") // #nosec
