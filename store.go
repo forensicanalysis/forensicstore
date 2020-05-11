@@ -49,7 +49,6 @@ import (
 	"github.com/spf13/afero"
 	"github.com/tidwall/gjson"
 
-	"github.com/forensicanalysis/forensicstore/goflatten"
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
 	"github.com/forensicanalysis/stixgo"
 )
@@ -75,12 +74,12 @@ var ErrStoreExists = fmt.Errorf("store already exists")
 var ErrStoreNotExists = fmt.Errorf("store does not exist")
 
 // New creates a new Forensicstore.
-func New(url string) (*ForensicStore, error) { // nolint:gocyclo
+func New(url string) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo
 	return open(url, true)
 }
 
 // Open opens an existing Forensicstore.
-func Open(url string) (*ForensicStore, error) { // nolint:gocyclo
+func Open(url string) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo
 	return open(url, false)
 }
 
@@ -109,7 +108,7 @@ func setPragma(conn *sqlite.Conn, name string, i int64) error {
 	return stmt.Finalize()
 }
 
-func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,funlen,gocognit
+func open(url string, create bool) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
 	if url != ":memory:" {
 		url = strings.TrimRight(url, "/")
 
@@ -117,86 +116,85 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 		_, err := os.Stat(url)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				return nil, err
+				return nil, nil, err
 			}
 			exists = false
 		}
 
 		if create && exists {
-			return nil, ErrStoreExists
+			return nil, nil, ErrStoreExists
 		}
 		if !create && !exists {
-			return nil, ErrStoreNotExists
+			return nil, nil, ErrStoreNotExists
 		}
 
 		if create {
 			err = os.MkdirAll(path.Dir(url), 0750)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			log.Printf("Creating store %s", url)
 			_, err := os.Create(url)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 	}
 
-	store := &ForensicStore{}
+	store = &ForensicStore{}
 
-	var err error
 	store.connection, err = sqlite.OpenConn(url, 0)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	fs, err := sqlitefs.NewCursor(store.connection)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	store.fs = fs
 
 	if create {
 		err = setPragma(store.connection, "application_id", elementaryApplicationID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		err = setPragma(store.connection, "user_version", forensicstoreVersion)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		err = store.exec("CREATE VIRTUAL TABLE `elements` " +
 			"USING fts5(id UNINDEXED, json, insert_time UNINDEXED, tokenize=\"unicode61 tokenchars '/.'\")")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	} else {
 		applicationID, err := pragma(store.connection, "application_id")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if applicationID != elementaryApplicationID {
 			msg := "wrong file format (application_id is %d, requires %d)"
-			return nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
+			return nil, nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
 		}
 
 		version, err := pragma(store.connection, "user_version")
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if version != forensicstoreVersion {
 			msg := "wrong file format (user_version is %d, requires %d)"
-			return nil, fmt.Errorf(msg, version, forensicstoreVersion)
+			return nil, nil, fmt.Errorf(msg, version, forensicstoreVersion)
 		}
 	}
 
 	store.types = newTypeMap()
 	err = store.setupTypes()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	store.schemas = newSchemaMap()
@@ -205,14 +203,14 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	for name, content := range stixgo.FS {
 		schema := &jsonschema.RootSchema{}
 		if err := json.Unmarshal(content, schema); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
+			return nil, nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
 		}
 
 		nameTitle[path.Base(name)] = schema.Title
 
 		err = store.SetSchema(schema.Title, schema)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -227,7 +225,7 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		jsonschema.DefaultSchemaPool["elementary:"+schema.Title] = &schema.Schema
@@ -237,11 +235,11 @@ func open(url string, create bool) (*ForensicStore, error) { // nolint:gocyclo,f
 	for _, schema := range store.Schemas() {
 		err = schema.FetchRemoteReferences()
 		if err != nil {
-			return nil, errors.Wrap(err, "could not FetchRemoteReferences")
+			return nil, nil, errors.Wrap(err, "could not FetchRemoteReferences")
 		}
 	}
 
-	return store, nil
+	return store, store.Close, nil
 }
 
 func (store *ForensicStore) SetFS(fs afero.Fs) {
@@ -274,23 +272,17 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 		return "", err
 	}
 
-	// flatten element
-	flatElement, err := goflatten.Flatten(nestedElement)
-	if err != nil {
-		return "", errors.Wrap(err, "could not flatten element")
-	}
-
-	elementType, ok := flatElement["type"]
+	elementType, ok := nestedElement["type"]
 	if !ok {
 		return "", errors.New("element requires type")
 	}
-	if _, ok := flatElement[elementType.(string)]; ok {
+	if _, ok := nestedElement[elementType.(string)]; ok {
 		return "", fmt.Errorf("element must not contain a field '%s'", elementType)
 	}
-	id, ok := flatElement["id"]
+	id, ok := nestedElement["id"]
 	if !ok {
 		id = elementType.(string) + "--" + uuid.New().String()
-		flatElement["id"] = id
+		nestedElement["id"] = id
 
 		element, err = json.Marshal(nestedElement)
 		if err != nil {
@@ -298,7 +290,7 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 		}
 	}
 
-	store.types.addAll(elementType.(string), flatElement)
+	store.types.addAll(elementType.(string), nestedElement)
 
 	// insert into elements table
 	query := fmt.Sprintf("INSERT INTO `elements` (id, json, insert_time) VALUES ($id, $json, $time)") // #nosec

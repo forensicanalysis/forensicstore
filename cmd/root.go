@@ -40,11 +40,11 @@ func Create() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
-			store, err := forensicstore.New(storeName)
+			_, teardown, err := forensicstore.New(storeName)
 			if err != nil {
 				return err
 			}
-			return store.Close()
+			return teardown()
 		},
 	}
 }
@@ -71,12 +71,12 @@ func Validate() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
 
-			store, err := forensicstore.Open(storeName)
+			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
 				fmt.Println(err)
 				return err
 			}
-			defer store.Close()
+			defer teardown()
 			valErr, err := store.Validate()
 			if err != nil {
 				fmt.Println(err)
