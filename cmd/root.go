@@ -40,6 +40,7 @@ func Create() *cobra.Command {
 		Short: "Create a forensicstore",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			storeName := cmd.Flags().Args()[0]
 			_, teardown, err := forensicstore.New(storeName)
 			if err != nil {
@@ -70,27 +71,30 @@ func Validate() *cobra.Command {
 		Short: "Validate the forensicstore",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			storeName := cmd.Flags().Args()[0]
 
 			head := make([]byte, 72)
-			f, err := os.Open(storeName)
+			f, err := os.Open(storeName) // #nosec
 			if err != nil {
 				return err
 			}
-			_, err = f.Read(head)
-			if err != nil {
+			if _, err = f.Read(head); err != nil {
+				return err
+			}
+			if err := f.Close(); err != nil {
 				return err
 			}
 
 			if string(head[68:72]) != "elem" {
-				return errors.New("File signature incorrect")
+				return errors.New("file signature incorrect")
 			}
 
 			storeVersion := binary.BigEndian.Uint32(head[60:64])
 			fmt.Printf("Forensicstore version: %d\n", storeVersion)
-			if storeVersion != forensicstore.Version+1 {
+			if storeVersion != forensicstore.Version {
 				return fmt.Errorf(
-					"Unsupported version, current library uses version %d\n",
+					"unsupported version, current library uses version %d",
 					forensicstore.Version,
 				)
 			}

@@ -14,9 +14,9 @@ import (
 
 func Pack() *cobra.Command {
 	return &cobra.Command{
-		Use:  "pack <forensicstore> <file>...",
+		Use:   "pack <forensicstore> <file>...",
 		Short: "Add files to the sqlite archive",
-		Args: cobra.MinimumNArgs(2), //nolint:gomnd
+		Args:  cobra.MinimumNArgs(2), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srcFS := afero.NewOsFs()
 			destFS, err := sqlitefs.New(args[0])
@@ -39,9 +39,9 @@ func Pack() *cobra.Command {
 
 func Unpack() *cobra.Command {
 	return &cobra.Command{
-		Use:  "unpack <forensicstore>",
+		Use:   "unpack <forensicstore>",
 		Short: "Extract files from the sqlite archive",
-		Args: cobra.ExactArgs(1), //nolint:gomnd
+		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			srcFS, err := sqlitefs.New(args[0])
 			if err != nil {
@@ -63,9 +63,9 @@ func Unpack() *cobra.Command {
 
 func Ls() *cobra.Command {
 	return &cobra.Command{
-		Use:  "ls <forensicstore>",
+		Use:   "ls <forensicstore>",
 		Short: "List files in the sqlite archive",
-		Args: cobra.ExactArgs(1), //nolint:gomnd
+		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fs, err := sqlitefs.New(args[0])
 			if err != nil {
