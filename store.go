@@ -64,7 +64,7 @@ const discriminator = "type"
 // objects like files are usually stored outside the forensicstore and references
 // from the forensicstore.
 type ForensicStore struct {
-	fs         afero.Fs
+	Fs         afero.Fs
 	connection *sqlite.Conn
 	types      *typeMap
 	schemas    *schemaMap
@@ -153,7 +153,7 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 	if err != nil {
 		return nil, nil, err
 	}
-	store.fs = fs
+	store.Fs = fs
 
 	if create {
 		err = setPragma(store.connection, "application_id", elementaryApplicationID)
@@ -243,7 +243,7 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 }
 
 func (store *ForensicStore) SetFS(fs afero.Fs) {
-	store.fs = fs
+	store.Fs = fs
 }
 
 func (store *ForensicStore) Connection() *sqlite.Conn {
@@ -381,7 +381,7 @@ func (store *ForensicStore) Query(query string) (elements []JSONElement, err err
 
 // StoreFile adds a file to the database folder.
 func (store *ForensicStore) StoreFile(filePath string) (storePath string, file io.WriteCloser, err error) {
-	err = store.fs.MkdirAll(filepath.Dir(filePath), 0755)
+	err = store.Fs.MkdirAll(filepath.Dir(filePath), 0755)
 	if err != nil {
 		return "", nil, err
 	}
@@ -391,26 +391,26 @@ func (store *ForensicStore) StoreFile(filePath string) (storePath string, file i
 	remoteStoreFilePath := filePath
 	base := remoteStoreFilePath[:len(remoteStoreFilePath)-len(ext)]
 
-	exists, err := afero.Exists(store.fs, remoteStoreFilePath)
+	exists, err := afero.Exists(store.Fs, remoteStoreFilePath)
 	if err != nil {
 		return "", nil, err
 	}
 	for exists {
 		remoteStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
 		i++
-		exists, err = afero.Exists(store.fs, remoteStoreFilePath)
+		exists, err = afero.Exists(store.Fs, remoteStoreFilePath)
 		if err != nil {
 			return "", nil, err
 		}
 	}
 
-	file, err = store.fs.Create(remoteStoreFilePath)
+	file, err = store.Fs.Create(remoteStoreFilePath)
 	return remoteStoreFilePath, file, err
 }
 
 // LoadFile opens a file from the database folder.
 func (store *ForensicStore) LoadFile(filePath string) (file io.ReadCloser, err error) {
-	return store.fs.Open(filePath)
+	return store.Fs.Open(filePath)
 }
 
 // Close saves and closes the database.
@@ -472,7 +472,7 @@ func (store *ForensicStore) Validate() (flaws []string, err error) {
 
 	foundFiles := map[string]bool{}
 	var additionalFiles []string
-	err = afero.Walk(store.fs, "/", func(path string, info os.FileInfo, err error) error {
+	err = afero.Walk(store.Fs, "/", func(path string, info os.FileInfo, err error) error {
 		path = filepath.ToSlash(path)
 		if info == nil || info.IsDir() {
 			return nil
@@ -537,7 +537,7 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 
 			elementExpectedFiles = append(elementExpectedFiles, "/"+exportPath)
 
-			exits, err := afero.Exists(store.fs, exportPath)
+			exits, err := afero.Exists(store.Fs, exportPath)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -546,7 +546,7 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 			}
 
 			if size, ok := fields["size"]; ok {
-				fi, err := store.fs.Stat(exportPath)
+				fi, err := store.Fs.Stat(exportPath)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -570,7 +570,7 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 						continue
 					}
 
-					f, err := store.fs.Open(exportPath)
+					f, err := store.Fs.Open(exportPath)
 					if err != nil {
 						return nil, nil, err
 					}
