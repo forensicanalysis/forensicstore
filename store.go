@@ -51,7 +51,6 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
-	"github.com/forensicanalysis/stixgo"
 )
 
 const Version = 2
@@ -198,47 +197,7 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 		return nil, nil, err
 	}
 
-	store.schemas = newSchemaMap()
-	nameTitle := map[string]string{}
-	// unmarshal schemas
-	for name, content := range stixgo.FS {
-		schema := &jsonschema.RootSchema{}
-		if err := json.Unmarshal(content, schema); err != nil {
-			return nil, nil, errors.Wrap(err, fmt.Sprintf("unmarshal error %s", name))
-		}
-
-		nameTitle[path.Base(name)] = schema.Title
-
-		err = store.SetSchema(schema.Title, schema)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	// replace refs
-	for _, schema := range store.Schemas() {
-		err = walkJSON(schema, func(elem jsonschema.JSONPather) error {
-			if sch, ok := elem.(*jsonschema.Schema); ok {
-				if sch.Ref != "" && sch.Ref[0] != '#' {
-					sch.Ref = "elementary:" + nameTitle[path.Base(sch.Ref)]
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, nil, err
-		}
-
-		jsonschema.DefaultSchemaPool["elementary:"+schema.Title] = &schema.Schema
-	}
-
-	// fetch references
-	for _, schema := range store.Schemas() {
-		err = schema.FetchRemoteReferences()
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "could not FetchRemoteReferences")
-		}
-	}
+	store.schemas = newSchemaMap(Schemas)
 
 	return store, store.Close, nil
 }

@@ -27,24 +27,7 @@ import (
 	"reflect"
 
 	"github.com/iancoleman/strcase"
-	"github.com/qri-io/jsonschema"
 )
-
-func walkJSON(elem jsonschema.JSONPather, fn func(elem jsonschema.JSONPather) error) error {
-	if err := fn(elem); err != nil {
-		return err
-	}
-
-	if con, ok := elem.(jsonschema.JSONContainer); ok {
-		for _, ch := range con.JSONChildren() {
-			if err := walkJSON(ch, fn); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
 
 func lower(f interface{}) interface{} {
 	var hashes = map[string]bool{
