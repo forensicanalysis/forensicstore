@@ -22,6 +22,7 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strings"
@@ -97,6 +98,42 @@ func Validate() *cobra.Command {
 	}
 	validateCommand.Flags().BoolVar(&noFail, "no-fail", false, "return exit code 0")
 	return validateCommand
+}
+
+// Version checks the file signature and version of a forensicstore.
+func Version() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version <forensicstore>",
+		Short: "Get the version of the forensicstore",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			storeName := cmd.Flags().Args()[0]
+
+			head := make([]byte, 72)
+			f, err := os.Open(storeName)
+			if err != nil {
+				return err
+			}
+			_, err = f.Read(head)
+			if err != nil {
+				return err
+			}
+
+			if string(head[68:72]) != "elem" {
+				return errors.New("File signature incorrect")
+			}
+
+			storeVersion := binary.BigEndian.Uint32(head[60:64])
+			fmt.Printf("Forensicstore version: %d\n", storeVersion)
+			if storeVersion != forensicstore.Version {
+				fmt.Printf(
+					"Unsupported version, current library uses version %d\n",
+					forensicstore.Version,
+				)
+			}
+			return nil
+		},
+	}
 }
 
 func requireOneStore(_ *cobra.Command, args []string) error {

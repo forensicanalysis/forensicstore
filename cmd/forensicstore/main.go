@@ -57,7 +57,7 @@ func main() {
 		Use:   "forensicstore",
 		Short: "Handle forensicstore files",
 	}
-	rootCmd.AddCommand(cmd.Element(), cmd.Create(), cmd.Validate())
+	rootCmd.AddCommand(cmd.Element(), cmd.Create(), cmd.Validate(), cmd.Version())
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
