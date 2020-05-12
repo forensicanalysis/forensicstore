@@ -199,12 +199,12 @@ func setupUrl(t *testing.T, url string) (*ForensicStore, func() error) {
 		t.Fatal(err)
 	}
 
-	store.fs.Mkdir("/", 0755)
-	store.fs.Mkdir("/WindowsAMCacheHveFile", 0755)
-	store.fs.Mkdir("/IPTablesRules", 0755)
-	store.fs.Mkdir("/WMILogicalDisks", 0755)
+	store.Fs.Mkdir("/", 0755)
+	store.Fs.Mkdir("/WindowsAMCacheHveFile", 0755)
+	store.Fs.Mkdir("/IPTablesRules", 0755)
+	store.Fs.Mkdir("/WMILogicalDisks", 0755)
 
-	f, _ := store.fs.Create("/WindowsAMCacheHveFile/Amcache.hve")
+	f, _ := store.Fs.Create("/WindowsAMCacheHveFile/Amcache.hve")
 	f.WriteString(strings.Repeat("A", 123))
 	err = f.Close()
 	if err != nil {
@@ -217,7 +217,7 @@ func setupUrl(t *testing.T, url string) (*ForensicStore, func() error) {
 		"/WMILogicalDisks/stderr",
 		"/WMILogicalDisks/stdout",
 	} {
-		f, err = store.fs.Create(name)
+		f, err = store.Fs.Create(name)
 		if err != nil {
 			t.Fatal(err)
 		}
