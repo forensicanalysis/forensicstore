@@ -59,7 +59,7 @@ func main() {
 	}
 	rootCmd.AddCommand(cmd.Element(), cmd.Create(), cmd.Validate())
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }

@@ -22,6 +22,7 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strings"
@@ -39,6 +40,7 @@ func Create() *cobra.Command {
 		Short: "Create a forensicstore",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			storeName := cmd.Flags().Args()[0]
 			_, teardown, err := forensicstore.New(storeName)
 			if err != nil {
@@ -53,7 +55,7 @@ func Create() *cobra.Command {
 func Element() *cobra.Command {
 	elementCommand := &cobra.Command{
 		Use:   "element",
-		Short: "Manipulate the forensicstore via the commandline",
+		Short: "Insert or retrieve elements from the forensicstore",
 		Args:  requireOneStore,
 	}
 	elementCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
@@ -66,10 +68,35 @@ func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{
 		Use:   "validate <forensicstore>",
-		Short: "Validate all elements",
+		Short: "Validate the forensicstore",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			storeName := cmd.Flags().Args()[0]
+
+			head := make([]byte, 72)
+			f, err := os.Open(storeName) // #nosec
+			if err != nil {
+				return err
+			}
+			if _, err = f.Read(head); err != nil {
+				return err
+			}
+			if err := f.Close(); err != nil {
+				return err
+			}
+
+			if string(head[68:72]) != "elem" {
+				return errors.New("file signature incorrect")
+			}
+
+			storeVersion := binary.BigEndian.Uint32(head[60:64])
+			if storeVersion != forensicstore.Version {
+				return fmt.Errorf(
+					"unsupported forensicstore version %d, current library uses version %d",
+					storeVersion, forensicstore.Version,
+				)
+			}
 
 			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {

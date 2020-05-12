@@ -53,7 +53,7 @@ import (
 	"github.com/forensicanalysis/stixgo"
 )
 
-const forensicstoreVersion = 2
+const Version = 2
 const elementaryApplicationID = 1701602669
 const discriminator = "type"
 
@@ -161,7 +161,7 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 			return nil, nil, err
 		}
 
-		err = setPragma(store.connection, "user_version", forensicstoreVersion)
+		err = setPragma(store.connection, "user_version", Version)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -185,9 +185,9 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 		if err != nil {
 			return nil, nil, err
 		}
-		if version != forensicstoreVersion {
+		if version != Version {
 			msg := "wrong file format (user_version is %d, requires %d)"
-			return nil, nil, fmt.Errorf(msg, version, forensicstoreVersion)
+			return nil, nil, fmt.Errorf(msg, version, Version)
 		}
 	}
 
