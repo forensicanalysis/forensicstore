@@ -44,17 +44,12 @@ func newReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.
 
 	if !info.IsDir() {
 		var err error
-		i.data, err = i.fs.cursor.OpenBlob("", "sqlar", "data", id, true)
+		i.data, err = i.fs.cursor.OpenBlob("", "sqlar", "data", id, false)
 		if err != nil {
 			return nil, err
 		}
 
 		i.reader = flate.NewReader(i.data)
-		// if info.Size() > data.Size() {
-
-		// } else {
-		// 	i.reader = data
-		// }
 	}
 
 	return i, nil

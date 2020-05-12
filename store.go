@@ -29,6 +29,7 @@ package forensicstore
 import (
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash"
@@ -551,7 +552,7 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 					return nil, nil, err
 				}
 				if int64(size.(float64)) != fi.Size() {
-					flaws = append(flaws, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), size))
+					flaws = append(flaws, fmt.Sprintf("wrong size for %s (is %d, expected %d)", exportPath, fi.Size(), int64(size.(float64))))
 				}
 			}
 
@@ -565,6 +566,8 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 						h = sha1.New() // #nosec
 					case "SHA-1":
 						h = sha1.New() // #nosec
+					case "SHA-256":
+						h = sha256.New()
 					default:
 						flaws = append(flaws, fmt.Sprintf("unsupported hash %s for %s", algorithm, exportPath))
 						continue
