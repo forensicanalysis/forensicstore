@@ -80,10 +80,8 @@ type schemaMap struct {
 	internal map[string]*jsonschema.RootSchema
 }
 
-func newSchemaMap() *schemaMap {
-	return &schemaMap{
-		internal: make(map[string]*jsonschema.RootSchema),
-	}
+func newSchemaMap(m map[string]*jsonschema.RootSchema) *schemaMap {
+	return &schemaMap{internal: m}
 }
 
 func (rm *schemaMap) load(key string) (value *jsonschema.RootSchema, ok bool) {
