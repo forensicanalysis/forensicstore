@@ -54,7 +54,7 @@ func Create() *cobra.Command {
 func Element() *cobra.Command {
 	elementCommand := &cobra.Command{
 		Use:   "element",
-		Short: "Manipulate the forensicstore via the commandline",
+		Short: "Insert or retrieve elements from the forensicstore",
 		Args:  requireOneStore,
 	}
 	elementCommand.AddCommand(getCommand(), selectCommand(), allCommand(),
@@ -67,10 +67,33 @@ func Validate() *cobra.Command {
 	var noFail bool
 	validateCommand := &cobra.Command{
 		Use:   "validate <forensicstore>",
-		Short: "Validate all elements",
+		Short: "Validate the forensicstore",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			storeName := cmd.Flags().Args()[0]
+
+			head := make([]byte, 72)
+			f, err := os.Open(storeName)
+			if err != nil {
+				return err
+			}
+			_, err = f.Read(head)
+			if err != nil {
+				return err
+			}
+
+			if string(head[68:72]) != "elem" {
+				return errors.New("File signature incorrect")
+			}
+
+			storeVersion := binary.BigEndian.Uint32(head[60:64])
+			fmt.Printf("Forensicstore version: %d\n", storeVersion)
+			if storeVersion != forensicstore.Version+1 {
+				return fmt.Errorf(
+					"Unsupported version, current library uses version %d\n",
+					forensicstore.Version,
+				)
+			}
 
 			store, teardown, err := forensicstore.Open(storeName)
 			if err != nil {
@@ -98,42 +121,6 @@ func Validate() *cobra.Command {
 	}
 	validateCommand.Flags().BoolVar(&noFail, "no-fail", false, "return exit code 0")
 	return validateCommand
-}
-
-// Version checks the file signature and version of a forensicstore.
-func Version() *cobra.Command {
-	return &cobra.Command{
-		Use:   "version <forensicstore>",
-		Short: "Get the version of the forensicstore",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			storeName := cmd.Flags().Args()[0]
-
-			head := make([]byte, 72)
-			f, err := os.Open(storeName)
-			if err != nil {
-				return err
-			}
-			_, err = f.Read(head)
-			if err != nil {
-				return err
-			}
-
-			if string(head[68:72]) != "elem" {
-				return errors.New("File signature incorrect")
-			}
-
-			storeVersion := binary.BigEndian.Uint32(head[60:64])
-			fmt.Printf("Forensicstore version: %d\n", storeVersion)
-			if storeVersion != forensicstore.Version {
-				fmt.Printf(
-					"Unsupported version, current library uses version %d\n",
-					forensicstore.Version,
-				)
-			}
-			return nil
-		},
-	}
 }
 
 func requireOneStore(_ *cobra.Command, args []string) error {
