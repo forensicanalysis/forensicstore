@@ -91,11 +91,10 @@ func Validate() *cobra.Command {
 			}
 
 			storeVersion := binary.BigEndian.Uint32(head[60:64])
-			fmt.Printf("Forensicstore version: %d\n", storeVersion)
 			if storeVersion != forensicstore.Version {
 				return fmt.Errorf(
-					"unsupported version, current library uses version %d",
-					forensicstore.Version,
+					"unsupported forensicstore version %d, current library uses version %d",
+					storeVersion, forensicstore.Version,
 				)
 			}
 
