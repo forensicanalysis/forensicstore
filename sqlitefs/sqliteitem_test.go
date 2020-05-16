@@ -1,8 +1,8 @@
 package sqlitefs
 
 import (
-	"bytes"
 	"compress/flate"
+	"github.com/forensicanalysis/forensicstore/sqlitefs/spooled"
 	"io"
 	"os"
 	"reflect"
@@ -71,7 +71,7 @@ func Test_item_Close(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -89,15 +89,15 @@ func Test_item_Close(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			if err := i.Close(); (err != nil) != tt.wantErr {
 				t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
@@ -110,7 +110,7 @@ func Test_item_Name(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -128,15 +128,15 @@ func Test_item_Name(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			if got := i.Name(); got != tt.want {
 				t.Errorf("Name() = %v, want %v", got, tt.want)
@@ -149,7 +149,7 @@ func Test_item_Read(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -172,15 +172,15 @@ func Test_item_Read(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			gotN, err := i.Read(tt.args.p)
 			if (err != nil) != tt.wantErr {
@@ -198,7 +198,7 @@ func Test_item_ReadAt(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -222,15 +222,15 @@ func Test_item_ReadAt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			gotN, err := i.ReadAt(tt.args.p, tt.args.off)
 			if (err != nil) != tt.wantErr {
@@ -248,7 +248,7 @@ func Test_item_Readdir(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -271,15 +271,15 @@ func Test_item_Readdir(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			got, err := i.Readdir(tt.args.count)
 			if (err != nil) != tt.wantErr {
@@ -297,7 +297,7 @@ func Test_item_Readdirnames(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -320,15 +320,15 @@ func Test_item_Readdirnames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			got, err := i.Readdirnames(tt.args.n)
 			if (err != nil) != tt.wantErr {
@@ -346,7 +346,7 @@ func Test_item_Seek(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -370,15 +370,15 @@ func Test_item_Seek(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			got, err := i.Seek(tt.args.offset, tt.args.whence)
 			if (err != nil) != tt.wantErr {
@@ -396,7 +396,7 @@ func Test_item_Stat(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -415,15 +415,15 @@ func Test_item_Stat(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			got, err := i.Stat()
 			if (err != nil) != tt.wantErr {
@@ -441,7 +441,7 @@ func Test_item_Sync(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -459,15 +459,15 @@ func Test_item_Sync(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			if err := i.Sync(); (err != nil) != tt.wantErr {
 				t.Errorf("Sync() error = %v, wantErr %v", err, tt.wantErr)
@@ -480,7 +480,7 @@ func Test_item_Truncate(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -502,15 +502,15 @@ func Test_item_Truncate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			if err := i.Truncate(tt.args.size); (err != nil) != tt.wantErr {
 				t.Errorf("Truncate() error = %v, wantErr %v", err, tt.wantErr)
@@ -523,7 +523,7 @@ func Test_item_Write(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -546,15 +546,15 @@ func Test_item_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			gotN, err := i.Write(tt.args.p)
 			if (err != nil) != tt.wantErr {
@@ -572,7 +572,7 @@ func Test_item_WriteAt(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -596,15 +596,15 @@ func Test_item_WriteAt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			gotN, err := i.WriteAt(tt.args.p, tt.args.off)
 			if (err != nil) != tt.wantErr {
@@ -622,7 +622,7 @@ func Test_item_WriteString(t *testing.T) {
 	type fields struct {
 		fs          *FS
 		path        string
-		buf         *bytes.Buffer
+		buf         *spooled.TemporaryFile
 		flateReader io.ReadCloser
 		info        os.FileInfo
 		data        io.ReadCloser
@@ -645,15 +645,15 @@ func Test_item_WriteString(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := &item{
-				fs:     tt.fields.fs,
-				path:   tt.fields.path,
-				buf:    tt.fields.buf,
-				reader: tt.fields.flateReader,
-				info:   tt.fields.info,
-				data:   tt.fields.data,
-				id:     tt.fields.id,
-				writer: tt.fields.writer,
-				size:   tt.fields.size,
+				fs:           tt.fields.fs,
+				path:         tt.fields.path,
+				writeBuffer:  tt.fields.buf,
+				uncompressor: tt.fields.flateReader,
+				info:         tt.fields.info,
+				blob:         tt.fields.data,
+				id:           tt.fields.id,
+				compressor:   tt.fields.writer,
+				size:         tt.fields.size,
 			}
 			gotRet, err := i.WriteString(tt.args.s)
 			if (err != nil) != tt.wantErr {
