@@ -1,0 +1,88 @@
+package spooled
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+)
+
+type TemporaryFile struct {
+	size       int64
+	maxSize    int64
+	buffer     *bytes.Buffer
+	tempFile   *os.File
+	rolledOver bool
+}
+
+func New(maxSize int64) (*TemporaryFile, func() error) {
+	t := &TemporaryFile{buffer: &bytes.Buffer{}, maxSize: maxSize}
+	return t, t.Close
+}
+
+func (t *TemporaryFile) Read(p []byte) (n int, err error) {
+	if t.rolledOver {
+		_, err := t.tempFile.Seek(0, io.SeekStart)
+		if err != nil {
+			return len(p), err
+		}
+		return t.tempFile.Read(p)
+	}
+	return t.buffer.Read(p)
+}
+
+func (t *TemporaryFile) Write(p []byte) (n int, err error) {
+	if t.rolledOver {
+		return t.tempFile.Write(p)
+	}
+
+	t.size += int64(len(p))
+
+	if t.size > t.maxSize {
+		err := t.Rollover()
+		if err != nil {
+			return len(p), err
+		}
+		return t.tempFile.Write(p)
+	}
+
+	return t.buffer.Write(p)
+}
+
+func (t *TemporaryFile) Rollover() (err error) {
+	t.tempFile, err = ioutil.TempFile(".", "tmp")
+	if err != nil {
+		return fmt.Errorf("could not create tmp file: %w", err)
+	}
+	t.rolledOver = true
+	_, err = io.Copy(t.tempFile, t.buffer)
+	if err != nil {
+		return fmt.Errorf("could not fill tmp file: %w", err)
+	}
+	t.buffer.Reset()
+	return nil
+}
+
+func (t *TemporaryFile) Close() error {
+	if t.rolledOver {
+		err := t.tempFile.Close()
+		if err != nil {
+			return err
+		}
+		return os.Remove(t.tempFile.Name())
+	}
+	t.buffer.Reset()
+	return nil
+}
+
+func (t *TemporaryFile) Size() (int64, error) {
+	if t.rolledOver {
+		info, err := t.tempFile.Stat()
+		if err != nil {
+			return 0, err
+		}
+		return info.Size(), nil
+	}
+	return int64(t.buffer.Len()), nil
+}
