@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -105,6 +106,7 @@ func Unpack() *cobra.Command {
 		Short: "Extract files from the sqlite archive",
 		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var err error
 			var srcFS afero.Fs
 			var store *forensicstore.ForensicStore
 			if prefix {
@@ -116,11 +118,11 @@ func Unpack() *cobra.Command {
 				srcFS = s.Fs
 				defer teardown()
 			} else {
-				srcFS, err := sqlitefs.New(args[0])
+				srcFS, err = sqlitefs.New(args[0])
 				if err != nil {
 					return err
 				}
-				defer srcFS.Close()
+				defer srcFS.(io.Closer).Close()
 			}
 
 			destFS := afero.NewOsFs()
