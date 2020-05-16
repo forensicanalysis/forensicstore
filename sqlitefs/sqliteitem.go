@@ -192,5 +192,4 @@ func (i *item) Reset() {
 	if err := i.writeBuffer.Close(); err != nil {
 		log.Println(err)
 	}
-	return
 }
