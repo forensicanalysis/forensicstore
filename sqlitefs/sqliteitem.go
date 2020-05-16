@@ -186,3 +186,11 @@ func (i *item) Sync() error {
 	}
 	return nil
 }
+
+func (i *item) Reset() {
+	i.size = 0
+	if err := i.writeBuffer.Close(); err != nil {
+		log.Println(err)
+	}
+	return
+}
