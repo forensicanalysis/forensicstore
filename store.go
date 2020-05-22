@@ -219,7 +219,7 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 	// validate element
 	valErr, err := store.validateElementSchema(element)
 	if err != nil {
-		return "", errors.Wrap(err, "validation failed")
+		return "", fmt.Errorf("validation failed: %w", err)
 	}
 	if len(valErr) > 0 {
 		return "", fmt.Errorf("element could not be validated [%s]", strings.Join(valErr, ","))
@@ -256,14 +256,14 @@ func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 	query := fmt.Sprintf("INSERT INTO `elements` (id, json, insert_time) VALUES ($id, $json, $time)") // #nosec
 	stmt, err := store.connection.Prepare(query)
 	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprintf("could not prepare statement %s", query))
+		return "", fmt.Errorf("could not prepare statement %s: %w", query, err)
 	}
 	stmt.SetText("$id", id.(string))
 	stmt.SetText("$json", string(element))
 	stmt.SetText("$time", time.Now().UTC().Format(time.RFC3339Nano))
 	_, err = stmt.Step()
 	if err != nil {
-		return "", errors.Wrap(err, fmt.Sprint("could not exec statement", query))
+		return "", fmt.Errorf("could not exec statement %s: %w", query, err)
 	}
 
 	return id.(string), nil
@@ -565,7 +565,7 @@ func (store *ForensicStore) validateElementSchema(element JSONElement) (flaws []
 		if err == errSchemaNotFound {
 			return nil, nil // no schema for element
 		}
-		return nil, errors.Wrap(err, "could not get schema")
+		return nil, fmt.Errorf("could not get schema: %w", err)
 	}
 
 	errs, err := rootSchema.ValidateBytes(element)
