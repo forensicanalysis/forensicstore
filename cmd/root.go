@@ -23,11 +23,11 @@ package cmd
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/forensicanalysis/forensicstore"
@@ -132,7 +132,7 @@ func requireOneStore(_ *cobra.Command, args []string) error {
 	}
 	for _, arg := range args {
 		if _, err := os.Stat(arg); os.IsNotExist(err) {
-			return errors.Wrap(os.ErrNotExist, arg)
+			return fmt.Errorf("%s: %w", arg, os.ErrNotExist)
 		}
 	}
 	return nil
