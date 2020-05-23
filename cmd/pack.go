@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path"
@@ -16,6 +15,7 @@ import (
 	"github.com/forensicanalysis/forensicstore"
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
 	"github.com/forensicanalysis/fslib/aferotools/copy"
+	"github.com/forensicanalysis/fslib/forensicfs/glob"
 )
 
 func Pack() *cobra.Command {
@@ -100,43 +100,42 @@ func normalizeFilePath(filePath string) string {
 
 func Unpack() *cobra.Command {
 	var prefix bool
-	var mode string
+	var mode, pattern string
 	unpackCmd := &cobra.Command{
 		Use:   "unpack <forensicstore>",
 		Short: "Extract files from the sqlite archive",
 		Args:  cobra.ExactArgs(1), //nolint:gomnd
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var err error
-			var srcFS afero.Fs
-			var store *forensicstore.ForensicStore
-			if prefix {
-				s, teardown, err := forensicstore.Open(args[0])
-				if err != nil {
-					return err
-				}
-				store = s
-				srcFS = s.Fs
-				defer teardown()
-			} else {
-				srcFS, err = sqlitefs.New(args[0])
-				if err != nil {
-					return err
-				}
-				defer srcFS.(io.Closer).Close()
+			store, srcFS, teardown, err := setupSource(prefix, args)
+			if err != nil {
+				return err
 			}
+			defer teardown()
 
 			destFS := afero.NewOsFs()
-
+			pattern = "**100/" + pattern
 			return afero.Walk(srcFS, "/", func(srcPath string, info os.FileInfo, err error) error {
 				if err != nil {
 					log.Println(err)
+					return err
 				}
-				if err != nil || info == nil || info.IsDir() {
+				if info == nil || info.IsDir() {
 					return nil
 				}
 
 				fullPath := filepath.ToSlash(srcPath)
-				dest, err := destinationPath(fullPath, mode, prefix, store)
+
+				if pattern != "" {
+					match, err := glob.Match(pattern, fullPath)
+					if err != nil {
+						return err
+					}
+					if !match {
+						return nil
+					}
+				}
+
+				dest, err := destinationPath(fullPath, mode, store)
 				if err != nil {
 					return err
 				}
@@ -153,14 +152,29 @@ compact (e.g. 'C_User_user_AppD_Loca_Goog_Chro_User_Defa_Exte_xx_1.11_exam.json'
 basename (e.g. 'example.json')
 `
 	unpackCmd.Flags().StringVar(&mode, "mode", "compact", usage)
-	usage = `create a folder for every artifact (e.g. 'ChromeExtensions/example.json')
-`
+	usage = `create a folder for every artifact (e.g. 'ChromeExtensions/example.json')`
 	unpackCmd.Flags().BoolVar(&prefix, "prefix-artifact", true, usage)
+	unpackCmd.Flags().StringVar(&pattern, "match", "", "only unpack files matching the pattern")
 
 	return unpackCmd
 }
 
-func destinationPath(fullPath string, mode string, prefix bool, store *forensicstore.ForensicStore) (string, error) {
+func setupSource(prefix bool, args []string) (*forensicstore.ForensicStore, afero.Fs, func() error, error) {
+	if prefix {
+		s, teardown, err := forensicstore.Open(args[0])
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return s, s.Fs, teardown, nil
+	}
+	srcFS, err := sqlitefs.New(args[0])
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return nil, srcFS, srcFS.Close, err
+}
+
+func destinationPath(fullPath string, mode string, store *forensicstore.ForensicStore) (string, error) {
 	var dest string
 	switch mode {
 	case "basename":
@@ -173,7 +187,7 @@ func destinationPath(fullPath string, mode string, prefix bool, store *forensics
 		dest = normalizeFilePath(fullPath)
 	}
 
-	if prefix {
+	if store != nil {
 		artifactName, err := artifactByPath(store, fullPath)
 		if err != nil {
 			return "", err
@@ -202,7 +216,8 @@ func artifactByPath(store *forensicstore.ForensicStore, srcPath string) (string,
 }
 
 func Ls() *cobra.Command {
-	return &cobra.Command{
+	var pattern string
+	lsCmd := &cobra.Command{
 		Use:   "ls <forensicstore>",
 		Short: "List files in the sqlite archive",
 		Args:  cobra.ExactArgs(1), //nolint:gomnd
@@ -213,10 +228,28 @@ func Ls() *cobra.Command {
 			}
 			defer fs.Close()
 
+			pattern = "**100/" + pattern
 			return afero.Walk(fs, "/", func(path string, info os.FileInfo, err error) error {
-				fmt.Println(filepath.ToSlash(path))
+				if err != nil {
+					return err
+				}
+
+				path = filepath.ToSlash(path)
+
+				if pattern != "" {
+					match, err := glob.Match(pattern, path)
+					if err != nil {
+						return err
+					}
+					if !match {
+						return nil
+					}
+				}
+				fmt.Println(path)
 				return nil
 			})
 		},
 	}
+	lsCmd.Flags().StringVar(&pattern, "match", "", "only unpack files matching the pattern")
+	return lsCmd
 }
