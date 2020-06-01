@@ -146,7 +146,7 @@ func Unpack() *cobra.Command {
 
 				fullPath := filepath.ToSlash(srcPath)
 				if pattern != "" {
-					match, err := glob.Match("**100/" + pattern, fullPath)
+					match, err := glob.Match("**100/"+pattern, fullPath)
 					if err != nil {
 						return err
 					}
