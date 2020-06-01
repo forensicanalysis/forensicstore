@@ -135,9 +135,6 @@ func Unpack() *cobra.Command {
 
 			destFS := afero.NewOsFs()
 
-			if pattern != "" {
-				pattern = "**100/" + pattern
-			}
 			return afero.Walk(srcFS, "/", func(srcPath string, info os.FileInfo, err error) error {
 				if err != nil {
 					log.Println(err)
@@ -148,9 +145,8 @@ func Unpack() *cobra.Command {
 				}
 
 				fullPath := filepath.ToSlash(srcPath)
-
 				if pattern != "" {
-					match, err := glob.Match(pattern, fullPath)
+					match, err := glob.Match("**100/" + pattern, fullPath)
 					if err != nil {
 						return err
 					}
