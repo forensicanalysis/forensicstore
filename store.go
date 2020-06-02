@@ -52,7 +52,8 @@ import (
 )
 
 const Version = 2
-const elementaryApplicationID = 1701602669
+const elementaryApplicationID = 0x656c656d
+const elementaryApplicationIDDirFS = 0x656c7a70
 const discriminator = "type"
 
 // The ForensicStore is a central storage for elements in digital forensic
@@ -73,12 +74,17 @@ var ErrStoreNotExists = fmt.Errorf("store does not exist")
 
 // New creates a new Forensicstore.
 func New(url string) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo
-	return open(url, true)
+	return open(url, true, elementaryApplicationID)
+}
+
+// New creates a new Forensicstore.
+func NewDirFS(url string) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo
+	return open(url, true, elementaryApplicationIDDirFS)
 }
 
 // Open opens an existing Forensicstore.
 func Open(url string) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo
-	return open(url, false)
+	return open(url, false, -1)
 }
 
 func pragma(conn *sqlite.Conn, name string) (int64, error) {
@@ -106,9 +112,12 @@ func setPragma(conn *sqlite.Conn, name string, i int64) error {
 	return stmt.Finalize()
 }
 
-func open(url string, create bool) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
+func open(url string, create bool, applicationID int64) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
 	if url != ":memory:" {
 		url = strings.TrimRight(url, "/")
+		if !strings.HasSuffix(url, ".forensicstore") {
+			return nil, nil, errors.New("File needs to end with '.forensicstore'")
+		}
 
 		exists := true
 		_, err := os.Stat(url)
@@ -147,14 +156,22 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 		return nil, nil, err
 	}
 
-	fs, err := sqlitefs.NewCursor(store.connection)
-	if err != nil {
-		return nil, nil, err
+	switch applicationID {
+	case elementaryApplicationIDDirFS:
+		osFS := afero.NewOsFs()
+		store.Fs = afero.NewBasePathFs(osFS, strings.TrimSuffix(url, ".forensicstore"))
+	case elementaryApplicationID:
+		fallthrough
+	default:
+		fs, err := sqlitefs.NewCursor(store.connection)
+		if err != nil {
+			return nil, nil, err
+		}
+		store.Fs = fs
 	}
-	store.Fs = fs
 
 	if create {
-		err = setPragma(store.connection, "application_id", elementaryApplicationID)
+		err = setPragma(store.connection, "application_id", applicationID)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -174,9 +191,9 @@ func open(url string, create bool) (store *ForensicStore, teardown func() error,
 		if err != nil {
 			return nil, nil, err
 		}
-		if applicationID != elementaryApplicationID {
-			msg := "wrong file format (application_id is %d, requires %d)"
-			return nil, nil, fmt.Errorf(msg, applicationID, elementaryApplicationID)
+		if applicationID != elementaryApplicationID && applicationID != elementaryApplicationIDDirFS {
+			msg := "wrong file format (application_id is %d)"
+			return nil, nil, fmt.Errorf(msg, applicationID)
 		}
 
 		version, err := pragma(store.connection, "user_version")
