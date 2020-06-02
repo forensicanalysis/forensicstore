@@ -22,7 +22,6 @@
 package forensicstore
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"log"
 	"os"
@@ -38,47 +37,30 @@ func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
-type element map[string]interface{}
-
-func jsons(e element) []byte {
-	b, err := json.Marshal(e)
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-var (
-	ProcessElementId = "process--920d7c41-0fef-4cf8-bce2-ead120f6b506"
-	ProcessElement   = []byte(`{
-		"id":           "process--920d7c41-0fef-4cf8-bce2-ead120f6b506",
-		"artifact":     "IPTablesRules",
-		"type":         "process",
-		"name":         "iptables",
-		"created_time": "2016-01-20T14:11:25.550Z",
-		"cwd":          "/root/",
-		"command_line": "/sbin/iptables -L -n -v",
-		"stdout_path":  "IPTablesRules/stdout",
-		"stderr_path":  "IPTablesRules/stderr",
-		"return_code":  0
-	}`)
-)
-
 /*
-func TestExtract(t *testing.T) {
-	_, teardown := setupUrl(t, "test.forensicstore")
+func TestDirExtract(t *testing.T) {
+	_, teardown := setupDirUrl(t)
 	defer teardown()
 }
 */
 
-func setup(t *testing.T) (*ForensicStore, func() error) {
-	return setupUrl(t, ":memory:")
-}
-
-func setupUrl(t *testing.T, url string) (*ForensicStore, func() error) {
-	store, teardown, err := New(url)
+func setupDirUrl(t *testing.T) (*ForensicStore, func() error) {
+	tempDir, err := ioutil.TempDir("", "store_dir")
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	storePath := filepath.Join(tempDir, "test.forensicstore")
+	store, teardownStore, err := NewDirFS(storePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	teardown := func() error {
+		if err := teardownStore(); err != nil {
+			return err
+		}
+		return os.RemoveAll(storePath)
 	}
 
 	_, err = store.InsertStruct(Process{
@@ -227,40 +209,8 @@ func setupUrl(t *testing.T, url string) (*ForensicStore, func() error) {
 	return store, teardown
 }
 
-func TestNew(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "newforensicstore")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	type args struct {
-		new func(string) (*ForensicStore, func() error, error)
-		url string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{"New", args{New, filepath.Join(tempDir, "my.forensicstore")}, false},
-		{"NewDirFS", args{NewDirFS, filepath.Join(tempDir, "my2.forensicstore")}, false},
-		// {"Wrong URL", args{"foo\x00bar"}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, teardown, err := tt.args.new(tt.args.url)
-			defer teardown()
-			defer os.Remove(tt.args.url)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("New() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
-func TestStore_Insert(t *testing.T) {
-	store, teardown := setup(t)
+func TestDirStore_Insert(t *testing.T) {
+	store, teardown := setupDirUrl(t)
 	defer teardown()
 
 	foo := jsons(element{"name": "foo", "type": "fo", "int": 0})
@@ -296,7 +246,7 @@ func TestStore_Insert(t *testing.T) {
 	}
 }
 
-func TestForensicStore_InsertStruct(t *testing.T) {
+func TestDirForensicStore_InsertStruct(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -333,7 +283,7 @@ func TestForensicStore_InsertStruct(t *testing.T) {
 	}
 }
 
-func TestStore_Get(t *testing.T) {
+func TestDirStore_Get(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -364,7 +314,7 @@ func TestStore_Get(t *testing.T) {
 	}
 }
 
-func TestStore_QueryStore(t *testing.T) {
+func TestDirStore_QueryStore(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -392,7 +342,7 @@ func TestStore_QueryStore(t *testing.T) {
 	}
 }
 
-func TestStore_Search(t *testing.T) {
+func TestDirStore_Search(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -419,7 +369,7 @@ func TestStore_Search(t *testing.T) {
 	}
 }
 
-func TestStore_Select(t *testing.T) {
+func TestDirStore_Select(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -449,7 +399,7 @@ func TestStore_Select(t *testing.T) {
 	}
 }
 
-func TestStore_All(t *testing.T) {
+func TestDirStore_All(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -473,7 +423,7 @@ func TestStore_All(t *testing.T) {
 	}
 }
 
-func TestStore_Validate(t *testing.T) {
+func TestDirStore_Validate(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -498,7 +448,7 @@ func TestStore_Validate(t *testing.T) {
 	}
 }
 
-func TestStore_validateElementSchema(t *testing.T) {
+func TestDirStore_validateElementSchema(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
@@ -542,7 +492,7 @@ func TestStore_validateElementSchema(t *testing.T) {
 	}
 }
 
-func TestStore_StoreFile(t *testing.T) {
+func TestDirStore_StoreFile(t *testing.T) {
 	store, teardown := setup(t)
 	defer teardown()
 
