@@ -51,7 +51,7 @@ import (
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
 )
 
-const Version = 2
+const Version = 3
 const elementaryApplicationID = 0x656c656d
 const elementaryApplicationIDDirFS = 0x656c7a70
 const discriminator = "type"
@@ -87,8 +87,8 @@ func Open(url string) (store *ForensicStore, teardown func() error, err error) {
 	return open(url, false, -1)
 }
 
-func pragma(conn *sqlite.Conn, name string) (int64, error) {
-	stmt, err := conn.Prepare("PRAGMA " + name)
+func (store *ForensicStore) pragma(name string) (int64, error) {
+	stmt, err := store.connection.Prepare("PRAGMA " + name)
 	if err != nil {
 		return 0, err
 	}
@@ -100,8 +100,8 @@ func pragma(conn *sqlite.Conn, name string) (int64, error) {
 	return i, stmt.Finalize()
 }
 
-func setPragma(conn *sqlite.Conn, name string, i int64) error {
-	stmt, err := conn.Prepare("PRAGMA " + name + " = " + fmt.Sprint(i))
+func (store *ForensicStore) setPragma(name string, i int64) error {
+	stmt, err := store.connection.Prepare("PRAGMA " + name + " = " + fmt.Sprint(i))
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func setPragma(conn *sqlite.Conn, name string, i int64) error {
 }
 
 func open(url string, create bool, applicationID int64) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
-	if url != ":memory:" {
+	if url != "file::memory:?mode=memory" {
 		url = strings.TrimRight(url, "/")
 		if !strings.HasSuffix(url, ".forensicstore") {
 			return nil, nil, errors.New("File needs to end with '.forensicstore'")
@@ -171,23 +171,47 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 	}
 
 	if create {
-		err = setPragma(store.connection, "application_id", applicationID)
+		err = store.setPragma("application_id", applicationID)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		err = setPragma(store.connection, "user_version", Version)
+		err = store.setPragma("user_version", Version)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		err = store.exec("CREATE VIRTUAL TABLE `elements` " +
-			"USING fts5(id UNINDEXED, json, insert_time UNINDEXED, tokenize=\"unicode61 tokenchars '/.'\")")
+		err = store.exec("CREATE TABLE \"elements\" (" +
+			"\"id\" TEXT NOT NULL," +
+			"\"json\" TEXT," +
+			"\"insert_time\" TEXT," +
+			"PRIMARY KEY(\"id\")" +
+			")")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX type_index ON elements(json_extract(json, '$.type'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX origin_path_index ON elements(json_extract(json, '$.origin.path'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX path_index ON elements(json_extract(json, '$.path'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX key_index ON elements(json_extract(json, '$.key'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX errors_index ON elements(json_extract(json, '$.errors'));")
 		if err != nil {
 			return nil, nil, err
 		}
 	} else {
-		applicationID, err := pragma(store.connection, "application_id")
+		applicationID, err := store.pragma("application_id")
 		if err != nil {
 			return nil, nil, err
 		}
@@ -196,13 +220,13 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 			return nil, nil, fmt.Errorf(msg, applicationID)
 		}
 
-		version, err := pragma(store.connection, "user_version")
+		version, err := store.pragma("user_version")
 		if err != nil {
 			return nil, nil, err
 		}
-		if version != Version {
-			msg := "wrong file format (user_version is %d, requires %d)"
-			return nil, nil, fmt.Errorf(msg, version, Version)
+		if version != 3 && version != 2 {
+			msg := "wrong file format (user_version is %d, requires 2 or 3)"
+			return nil, nil, fmt.Errorf(msg, version)
 		}
 	}
 
@@ -355,10 +379,10 @@ func (store *ForensicStore) Query(query string) (elements []JSONElement, err err
 }
 
 // StoreFile adds a file to the database folder.
-func (store *ForensicStore) StoreFile(filePath string) (storePath string, file io.WriteCloser, err error) {
+func (store *ForensicStore) StoreFile(filePath string) (storePath string, file io.WriteCloser, teardown func() error, err error) {
 	err = store.Fs.MkdirAll(filepath.Dir(filePath), 0755)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	i := 0
@@ -368,24 +392,25 @@ func (store *ForensicStore) StoreFile(filePath string) (storePath string, file i
 
 	exists, err := afero.Exists(store.Fs, remoteStoreFilePath)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 	for exists {
 		remoteStoreFilePath = fmt.Sprintf("%s_%d%s", base, i, ext)
 		i++
 		exists, err = afero.Exists(store.Fs, remoteStoreFilePath)
 		if err != nil {
-			return "", nil, err
+			return "", nil, nil, err
 		}
 	}
 
 	file, err = store.Fs.Create(remoteStoreFilePath)
-	return remoteStoreFilePath, file, err
+	return remoteStoreFilePath, file, file.Close, err
 }
 
 // LoadFile opens a file from the database folder.
-func (store *ForensicStore) LoadFile(filePath string) (file io.ReadCloser, err error) {
-	return store.Fs.Open(filePath)
+func (store *ForensicStore) LoadFile(filePath string) (file io.ReadCloser, teardown func() error, err error) {
+	file, err = store.Fs.Open(filePath)
+	return file, file.Close, err
 }
 
 // Close saves and closes the database.
@@ -621,11 +646,11 @@ func (store *ForensicStore) Select(conditions []map[string]string) (elements []J
 
 // Search for elements.
 func (store *ForensicStore) Search(q string) (elements []JSONElement, err error) {
-	stmt, err := store.connection.Prepare("SELECT json FROM elements WHERE elements = $query")
+	stmt, err := store.connection.Prepare("SELECT json FROM elements WHERE json LIKE $query")
 	if err != nil {
 		return nil, err
 	}
-	stmt.SetText("$query", q)
+	stmt.SetText("$query", "%"+q+"%")
 	return store.rowsToElements(stmt)
 }
 

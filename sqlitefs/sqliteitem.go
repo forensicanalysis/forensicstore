@@ -22,7 +22,9 @@
 package sqlitefs
 
 import (
+	"bytes"
 	"compress/flate"
+	"compress/gzip"
 	"errors"
 	"io"
 	"log"
@@ -54,13 +56,11 @@ type item struct {
 	teardown    func() error
 }
 
-func newWriteItem(fs *FS, id int64, path string) (i *item, err error) {
+func newWriteItem(fs *FS, id int64, path string) *item {
 	buf, teardown := spooled.New(MaxMemoryBackedSize)
-	i = &item{fs: fs, id: id, path: path, writeBuffer: buf, teardown: teardown}
-
-	i.compressor, err = flate.NewWriter(i.writeBuffer, -1)
-
-	return i, err
+	i := &item{fs: fs, id: id, path: path, writeBuffer: buf, teardown: teardown}
+	i.compressor = gzip.NewWriter(i.writeBuffer)
+	return i
 }
 
 func newReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.FileInfo) (i *item, err error) {
@@ -72,10 +72,22 @@ func newReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.
 			return nil, err
 		}
 
-		i.uncompressor = flate.NewReader(i.blob)
+		b := make([]byte, 2)
+		_, err = i.blob.Read(b)
+		if err != nil {
+			return nil, err
+		}
+
+		patchedReader := io.MultiReader(bytes.NewReader(b), i.blob)
+
+		if b[0] == 0x1f && b[1] == 0x8b {
+			i.uncompressor, err = gzip.NewReader(patchedReader)
+		} else {
+			i.uncompressor = flate.NewReader(patchedReader)
+		}
 	}
 
-	return i, nil
+	return i, err
 }
 
 func (i *item) Name() string {
