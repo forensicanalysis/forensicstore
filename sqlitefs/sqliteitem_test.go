@@ -70,17 +70,12 @@ func TestNewWriteItem(t *testing.T) {
 		name    string
 		args    args
 		want    *item
-		wantErr bool
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newWriteItem(tt.args.fs, tt.args.id, tt.args.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("newWriteItem() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := newWriteItem(tt.args.fs, tt.args.id, tt.args.path)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("newWriteItem() got = %v, want %v", got, tt.want)
 			}

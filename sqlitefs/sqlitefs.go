@@ -174,7 +174,7 @@ func (fs *FS) OpenFile(name string, flag int, perm os.FileMode) (afero.File, err
 	}
 
 	if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
-		return newWriteItem(fs, id, name)
+		return newWriteItem(fs, id, name), nil
 	}
 	return nil, ErrNotImplemented
 }
