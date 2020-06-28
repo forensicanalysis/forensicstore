@@ -73,7 +73,7 @@ func newReadItem(fs *FS, id int64, path string, info os.FileInfo, children []os.
 		}
 
 		b := make([]byte, 2)
-		_, err := i.blob.Read(b)
+		_, err = i.blob.Read(b)
 		if err != nil {
 			return nil, err
 		}
