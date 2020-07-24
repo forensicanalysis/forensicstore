@@ -210,6 +210,14 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 		if err != nil {
 			return nil, nil, err
 		}
+		err = store.exec("CREATE INDEX label_index ON elements(json_extract(json, '$.labels'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX artifact_index ON elements(json_extract(json, '$.artifact'));")
+		if err != nil {
+			return nil, nil, err
+		}
 	} else {
 		applicationID, err := store.pragma("application_id")
 		if err != nil {
@@ -228,14 +236,6 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 			msg := "wrong file format (user_version is %d, requires 2 or 3)"
 			return nil, nil, fmt.Errorf(msg, version)
 		}
-	}
-	err = store.exec("CREATE INDEX IF NOT EXISTS label_index ON elements(json_extract(json, '$.labels'));")
-	if err != nil {
-		return nil, nil, err
-	}
-	err = store.exec("CREATE INDEX IF NOT EXISTS artifact_index ON elements(json_extract(json, '$.artifact'));")
-	if err != nil {
-		return nil, nil, err
 	}
 
 	store.types = newTypeMap()
