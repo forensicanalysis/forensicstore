@@ -210,6 +210,14 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 		if err != nil {
 			return nil, nil, err
 		}
+		err = store.exec("CREATE INDEX label_index ON elements(json_extract(json, '$.labels'));")
+		if err != nil {
+			return nil, nil, err
+		}
+		err = store.exec("CREATE INDEX artifact_index ON elements(json_extract(json, '$.artifact'));")
+		if err != nil {
+			return nil, nil, err
+		}
 	} else {
 		applicationID, err := store.pragma("application_id")
 		if err != nil {
