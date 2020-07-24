@@ -229,6 +229,14 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 			return nil, nil, fmt.Errorf(msg, version)
 		}
 	}
+	err = store.exec("CREATE INDEX IF NOT EXISTS label_index ON elements(json_extract(json, '$.labels'));")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = store.exec("CREATE INDEX IF NOT EXISTS artifact_index ON elements(json_extract(json, '$.artifact'));")
+	if err != nil {
+		return nil, nil, err
+	}
 
 	store.types = newTypeMap()
 	err = store.setupTypes()
