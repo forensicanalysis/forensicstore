@@ -23,11 +23,12 @@ package sqlitefs
 
 import (
 	"compress/flate"
-	"github.com/forensicanalysis/forensicstore/sqlitefs/spooled"
 	"io"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/forensicanalysis/forensicstore/sqlitefs/spooled"
 )
 
 func TestNewReadItem(t *testing.T) {
@@ -67,9 +68,9 @@ func TestNewWriteItem(t *testing.T) {
 		path string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *item
+		name string
+		args args
+		want *item
 	}{
 		// TODO: Add test cases.
 	}

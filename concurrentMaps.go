@@ -23,8 +23,6 @@ package forensicstore
 
 import (
 	"sync"
-
-	"github.com/qri-io/jsonschema"
 )
 
 type typeMap struct {
@@ -71,35 +69,4 @@ func (rm *typeMap) addAll(name string, fields map[string]interface{}) {
 		}
 	}
 	rm.Unlock()
-}
-
-type schemaMap struct {
-	sync.RWMutex
-	internal map[string]*jsonschema.RootSchema
-}
-
-func newSchemaMap(m map[string]*jsonschema.RootSchema) *schemaMap {
-	return &schemaMap{internal: m}
-}
-
-func (rm *schemaMap) load(key string) (value *jsonschema.RootSchema, ok bool) {
-	rm.RLock()
-	result, ok := rm.internal[key]
-	rm.RUnlock()
-	return result, ok
-}
-
-func (rm *schemaMap) store(key string, value *jsonschema.RootSchema) {
-	rm.Lock()
-	rm.internal[key] = value
-	rm.Unlock()
-}
-
-func (rm *schemaMap) values() (values []*jsonschema.RootSchema) {
-	rm.Lock()
-	for _, value := range rm.internal {
-		values = append(values, value)
-	}
-	rm.Unlock()
-	return values
 }

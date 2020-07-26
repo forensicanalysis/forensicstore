@@ -25,6 +25,8 @@
 package forensicstore
 
 import (
+	"bytes"
+	"context"
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
 	"crypto/sha256"
@@ -49,6 +51,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
+	"github.com/forensicanalysis/stixgo"
 )
 
 const Version = 3
@@ -66,7 +69,6 @@ type ForensicStore struct {
 	Fs         afero.Fs
 	connection *sqlite.Conn
 	types      *typeMap
-	schemas    *schemaMap
 }
 
 var ErrStoreExists = fmt.Errorf("store already exists")
@@ -112,15 +114,15 @@ func (store *ForensicStore) setPragma(name string, i int64) error {
 	return stmt.Finalize()
 }
 
-func open(url string, create bool, applicationID int64) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
-	if url != "file::memory:?mode=memory" {
-		url = strings.TrimRight(url, "/")
-		if !strings.HasSuffix(url, ".forensicstore") {
+func open(storeURL string, create bool, applicationID int64) (store *ForensicStore, teardown func() error, err error) { // nolint:gocyclo,funlen,gocognit,lll
+	if storeURL != "file::memory:?mode=memory" {
+		storeURL = strings.TrimRight(storeURL, "/")
+		if !strings.HasSuffix(storeURL, ".forensicstore") {
 			return nil, nil, errors.New("File needs to end with '.forensicstore'")
 		}
 
 		exists := true
-		_, err := os.Stat(url)
+		_, err := os.Stat(storeURL)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return nil, nil, err
@@ -136,13 +138,13 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 		}
 
 		if create {
-			err = os.MkdirAll(path.Dir(url), 0750)
+			err = os.MkdirAll(path.Dir(storeURL), 0750)
 			if err != nil {
 				return nil, nil, err
 			}
 
-			log.Printf("Creating store %s", url)
-			_, err := os.Create(url)
+			log.Printf("Creating store %s", storeURL)
+			_, err := os.Create(storeURL)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -151,7 +153,7 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 
 	store = &ForensicStore{}
 
-	store.connection, err = sqlite.OpenConn(url, 0)
+	store.connection, err = sqlite.OpenConn(storeURL, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -159,7 +161,7 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 	switch applicationID {
 	case elementaryApplicationIDDirFS:
 		osFS := afero.NewOsFs()
-		store.Fs = afero.NewBasePathFs(osFS, strings.TrimSuffix(url, ".forensicstore"))
+		store.Fs = afero.NewBasePathFs(osFS, strings.TrimSuffix(storeURL, ".forensicstore"))
 	case elementaryApplicationID:
 		fallthrough
 	default:
@@ -244,7 +246,26 @@ func open(url string, create bool, applicationID int64) (store *ForensicStore, t
 		return nil, nil, err
 	}
 
-	store.schemas = newSchemaMap(Schemas)
+	// unmarshal schemas
+	registry := jsonschema.GetSchemaRegistry()
+	for _, content := range stixgo.FS {
+		// convert to draft/2019-09
+		content = bytes.ReplaceAll(content, []byte(`"definitions"`), []byte(`"$defs"`))
+		content = bytes.ReplaceAll(content, []byte(`"#/definitions/`), []byte(`"#/$defs/`))
+		content = bytes.ReplaceAll(content,
+			[]byte(`"$schema": "http://json-schema.org/draft-07/schema#",`),
+			[]byte(`"$schema": "https://json-schema.org/draft/2019-09/schema#",`),
+		)
+
+		schema := &jsonschema.Schema{}
+		if err := json.Unmarshal(content, schema); err != nil {
+			panic(err)
+		}
+
+		id := string(*schema.JSONProp("$id").(*jsonschema.ID))
+		schema.Resolve(nil, id)
+		registry.Register(schema)
+	}
 
 	return store, store.Close, nil
 }
@@ -608,15 +629,16 @@ func (store *ForensicStore) validateElementSchema(element JSONElement) (flaws []
 		flaws = append(flaws, "element needs to have a type")
 	}
 
-	rootSchema, err := store.Schema(elementType.String())
-	if err != nil {
-		if err == errSchemaNotFound {
-			return nil, nil // no schema for element
-		}
-		return nil, fmt.Errorf("could not get schema: %w", err)
+	schema := jsonschema.GetSchemaRegistry().GetKnown(fmt.Sprintf(
+		"http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/observables/%s.json",
+		elementType.String(),
+	))
+
+	if schema == nil {
+		return nil, nil
 	}
 
-	errs, err := rootSchema.ValidateBytes(element)
+	errs, err := schema.ValidateBytes(context.Background(), element)
 	if err != nil {
 		return nil, err
 	}
@@ -758,31 +780,4 @@ func (store *ForensicStore) exec(query string) error {
 	}
 
 	return stmt.Finalize()
-}
-
-// SetSchema inserts or replaces a json schema for input validation.
-func (store *ForensicStore) SetSchema(id string, schema *jsonschema.RootSchema) error {
-	if val, ok := store.schemas.load(id); ok && val == schema {
-		return nil
-	}
-
-	// store.schemas[id] = schema
-	store.schemas.store(id, schema)
-	return nil
-}
-
-var errSchemaNotFound = errors.New("schema not found")
-
-// Schema gets a single schema from the database.
-func (store *ForensicStore) Schema(id string) (*jsonschema.RootSchema, error) {
-	if schema, ok := store.schemas.load(id); ok {
-		return schema, nil
-	}
-
-	return nil, errSchemaNotFound
-}
-
-// Schemas gets all schemas from the database.
-func (store *ForensicStore) Schemas() []*jsonschema.RootSchema {
-	return store.schemas.values()
 }
