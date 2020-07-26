@@ -14,6 +14,6 @@ require (
 	github.com/qri-io/jsonschema v0.1.1
 	github.com/spf13/afero v1.3.2
 	github.com/spf13/cobra v1.0.0
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/gjson v1.6.0
 )
