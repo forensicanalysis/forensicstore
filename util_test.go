@@ -26,7 +26,6 @@ import (
 	"testing"
 )
 
-
 func Test_lower(t *testing.T) {
 	type args struct {
 		f interface{}
