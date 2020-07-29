@@ -3,7 +3,7 @@ module github.com/forensicanalysis/forensicstore
 go 1.12
 
 require (
-	crawshaw.io/sqlite v0.2.5
+	crawshaw.io/sqlite v0.3.2
 	github.com/fatih/structs v1.1.0
 	github.com/forensicanalysis/fslib v0.14.5
 	github.com/forensicanalysis/stixgo v0.1.1
