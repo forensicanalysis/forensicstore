@@ -1,4 +1,5 @@
 // Copyright (c) 2020 Siemens AG
+// Copyright (c) 2020 Jonas Plum
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of
 // this software and associated documentation files (the "Software"), to deal in
@@ -22,7 +23,9 @@
 package forensicstore
 
 import (
+	"crawshaw.io/sqlite"
 	"encoding/json"
+	"github.com/spf13/afero"
 	"io/ioutil"
 	"log"
 	"os"
@@ -596,6 +599,82 @@ func TestStore_StoreFile(t *testing.T) {
 
 			if !reflect.DeepEqual(b, tt.wantData) {
 				t.Errorf("ForensicStore.StoreFile() gotFile = %v, want %v", b, tt.wantData)
+			}
+		})
+	}
+}
+
+func TestForensicStore_setPragma(t *testing.T) {
+	store, teardown := setup(t)
+	defer teardown()
+
+	type args struct {
+		name string
+		i    int64
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"pragma", args{"user_version", 42}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := store.setPragma(tt.args.name, tt.args.i); (err != nil) != tt.wantErr {
+				t.Errorf("setPragma() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			got, err := store.pragma(tt.args.name)
+			if err != nil {
+				t.Errorf("pragma() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if got != tt.args.i {
+				t.Errorf("pragma got = %v, want %v", got, tt.args.i)
+			}
+		})
+	}
+}
+
+func TestForensicStore_SetFS(t *testing.T) {
+	store, teardown := setup(t)
+	defer teardown()
+
+	type args struct {
+		fs afero.Fs
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{"memfs", args{fs: afero.NewMemMapFs()}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store.SetFS(tt.args.fs)
+		})
+	}
+}
+
+func TestForensicStore_Connection(t *testing.T) {
+	store, teardown := setup(t)
+	defer teardown()
+
+	tests := []struct {
+		name string
+		want *sqlite.Conn
+	}{
+		{"connection", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := store.Connection()
+
+			if got == nil {
+				t.Errorf("Connection should not be nil")
 			}
 		})
 	}
