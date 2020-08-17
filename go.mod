@@ -9,7 +9,7 @@ require (
 	github.com/forensicanalysis/stixgo v0.1.1
 	github.com/google/uuid v1.1.1
 	github.com/iancoleman/strcase v0.0.0-20191112232945-16388991a334
-	github.com/imdario/mergo v0.3.10
+	github.com/imdario/mergo v0.3.11
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.2.0
 	github.com/spf13/afero v1.3.4
