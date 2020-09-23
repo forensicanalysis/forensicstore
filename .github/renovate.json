@@ -1,9 +1,16 @@
 {
-  "extends": [
-    "config:base",
-    ":preserveSemverRanges",
-    "schedule:earlyMondays"
-  ],
-  "groupName": "all",
-  "gomodTidy": true
+    "extends": [
+        "config:base",
+        ":automergeMinor",
+        ":automergePr"
+    ],
+    "postUpdateOptions": [
+        "gomodTidy"
+    ],
+    "labels": [
+        "Type: Maintenance"
+    ],
+    "assignees": [
+        "cugu"
+    ]
 }
