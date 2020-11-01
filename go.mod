@@ -5,7 +5,7 @@ go 1.12
 require (
 	crawshaw.io/sqlite v0.3.2
 	github.com/fatih/structs v1.1.0
-	github.com/forensicanalysis/fslib v0.14.6
+	github.com/forensicanalysis/fslib v0.14.7
 	github.com/forensicanalysis/stixgo v0.1.1
 	github.com/google/uuid v1.1.2
 	github.com/iancoleman/strcase v0.1.2
