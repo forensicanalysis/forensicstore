@@ -23,8 +23,7 @@ package forensicstore
 
 import (
 	"reflect"
-
-	"github.com/iancoleman/strcase"
+	"strings"
 )
 
 func lower(f interface{}) interface{} {
@@ -59,7 +58,7 @@ func lower(f interface{}) interface{} {
 				if _, ok := hashes[k]; ok {
 					lf[k] = lower(v)
 				} else {
-					lf[strcase.ToSnake(k)] = lower(v)
+					lf[toSnake(k)] = lower(v)
 				}
 			}
 		}
@@ -67,6 +66,22 @@ func lower(f interface{}) interface{} {
 	default:
 		return f
 	}
+}
+
+func toSnake(s string) string {
+	s = strings.Trim(s, " ")
+	n := ""
+	for i, v := range s {
+		if i > 0 && v >= 'A' && v <= 'Z' && n[len(n)-1] != '_' {
+			n += "_" + string(v)
+		} else if v == ' ' {
+			n += "_"
+		} else {
+			n = n + string(v)
+		}
+	}
+	n = strings.ToLower(n)
+	return n
 }
 
 func isEmptyValue(v reflect.Value) bool {

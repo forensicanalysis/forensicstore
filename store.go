@@ -25,8 +25,6 @@
 package forensicstore
 
 import (
-	"bytes"
-	"context"
 	"crypto/md5"  // #nosec
 	"crypto/sha1" // #nosec
 	"crypto/sha256"
@@ -46,12 +44,10 @@ import (
 	"github.com/fatih/structs"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/qri-io/jsonschema"
 	"github.com/spf13/afero"
 	"github.com/tidwall/gjson"
 
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
-	"github.com/forensicanalysis/stixgo"
 )
 
 const Version = 3
@@ -244,27 +240,6 @@ func open(storeURL string, create bool, applicationID int64) (store *ForensicSto
 	err = store.setupTypes()
 	if err != nil {
 		return nil, nil, err
-	}
-
-	// unmarshal schemas
-	registry := jsonschema.GetSchemaRegistry()
-	for _, content := range stixgo.FS {
-		// convert to draft/2019-09
-		content = bytes.ReplaceAll(content, []byte(`"definitions"`), []byte(`"$defs"`))
-		content = bytes.ReplaceAll(content, []byte(`"#/definitions/`), []byte(`"#/$defs/`))
-		content = bytes.ReplaceAll(content,
-			[]byte(`"$schema": "http://json-schema.org/draft-07/schema#",`),
-			[]byte(`"$schema": "https://json-schema.org/draft/2019-09/schema#",`),
-		)
-
-		schema := &jsonschema.Schema{}
-		if err := json.Unmarshal(content, schema); err != nil {
-			panic(err)
-		}
-
-		id := string(*schema.JSONProp("$id").(*jsonschema.ID))
-		schema.Resolve(nil, id)
-		registry.Register(schema)
 	}
 
 	return store, store.Close, nil
@@ -629,23 +604,7 @@ func (store *ForensicStore) validateElementSchema(element JSONElement) (flaws []
 		flaws = append(flaws, "element needs to have a type")
 	}
 
-	schema := jsonschema.GetSchemaRegistry().GetKnown(fmt.Sprintf(
-		"http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/observables/%s.json",
-		elementType.String(),
-	))
-
-	if schema == nil {
-		return nil, nil
-	}
-
-	errs, err := schema.ValidateBytes(context.Background(), element)
-	if err != nil {
-		return nil, err
-	}
-	for _, verr := range errs {
-		flaws = append(flaws, fmt.Sprintf("failed to validate element: %s", verr))
-	}
-	return flaws, nil
+	return nil, nil
 }
 
 // Select retrieves all elements of a discriminated attribute.
