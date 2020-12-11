@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/qri-io/jsonschema"
 	"github.com/tidwall/gjson"
 
