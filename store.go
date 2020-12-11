@@ -242,6 +242,8 @@ func open(storeURL string, create bool, applicationID int64) (store *ForensicSto
 		return nil, nil, err
 	}
 
+	setupSchemaValidation()
+
 	return store, store.Close, nil
 }
 
@@ -260,7 +262,7 @@ func (store *ForensicStore) Connection() *sqlite.Conn {
 // Insert adds a single element.
 func (store *ForensicStore) Insert(element JSONElement) (string, error) {
 	// validate element
-	valErr, err := store.validateElementSchema(element)
+	valErr, err := validateSchema(element)
 	if err != nil {
 		return "", fmt.Errorf("validation failed: %w", err)
 	}
@@ -518,7 +520,7 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 		flaws = append(flaws, "element needs to have a type")
 	}
 
-	valErr, err := store.validateElementSchema(element)
+	valErr, err := validateSchema(element)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -596,15 +598,6 @@ func (store *ForensicStore) validateElement(element JSONElement) (flaws []string
 	}
 
 	return flaws, elementExpectedFiles, nil
-}
-
-func (store *ForensicStore) validateElementSchema(element JSONElement) (flaws []string, err error) {
-	elementType := gjson.GetBytes(element, discriminator)
-	if !elementType.Exists() {
-		flaws = append(flaws, "element needs to have a type")
-	}
-
-	return nil, nil
 }
 
 // Select retrieves all elements of a discriminated attribute.
