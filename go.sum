@@ -51,8 +51,8 @@ github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0 h1:Q7juDM0QtcnhCpeyLGQKyg4TOIghuNXrkL32pHAUMxo=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
-github.com/forensicanalysis/fslib v0.14.8 h1:pr/4a7/v8l+O6FTPw655to8W8rs+QPoMkbMe42DwEl0=
-github.com/forensicanalysis/fslib v0.14.8/go.mod h1:NUTzwx+QvyMDNmApTc094Jwhf5jJJsos6yLBghPT95s=
+github.com/forensicanalysis/fslib v0.14.9 h1:3Hd0G+/oYywaDtOImpQaAecQx02Jks135ZZRc7MBsdo=
+github.com/forensicanalysis/fslib v0.14.9/go.mod h1:NUTzwx+QvyMDNmApTc094Jwhf5jJJsos6yLBghPT95s=
 github.com/forensicanalysis/stixgo v0.1.1 h1:17XY2BD8b0wrYTCi+ekxVIFfWoKOw+HwvmN5YJtkoRY=
 github.com/forensicanalysis/stixgo v0.1.1/go.mod h1:0Lr/Rs373qJDVUguJXiLRd7N78nkkTbkd4h92OBXUkg=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
