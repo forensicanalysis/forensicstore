@@ -22,8 +22,9 @@
 package forensicstore
 
 import (
-	"github.com/stoewer/go-strcase"
 	"reflect"
+
+	"github.com/stoewer/go-strcase"
 )
 
 func lower(f interface{}) interface{} {
