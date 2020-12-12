@@ -24,7 +24,7 @@ package forensicstore
 import (
 	"reflect"
 
-	"github.com/iancoleman/strcase"
+	"github.com/stoewer/go-strcase"
 )
 
 func lower(f interface{}) interface{} {
@@ -59,7 +59,7 @@ func lower(f interface{}) interface{} {
 				if _, ok := hashes[k]; ok {
 					lf[k] = lower(v)
 				} else {
-					lf[strcase.ToSnake(k)] = lower(v)
+					lf[strcase.SnakeCase(k)] = lower(v)
 				}
 			}
 		}

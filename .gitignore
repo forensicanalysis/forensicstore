@@ -44,3 +44,4 @@ pip-delete-this-directory.txt
 /dist
 example.forensicstore
 test.forensicstore
+vendor
