@@ -44,7 +44,7 @@ func New(maxSize int64) (*TemporaryFile, func() error) {
 
 func (t *TemporaryFile) Read(p []byte) (n int, err error) {
 	if t.rolledOver {
-		_, err := t.tempFile.Seek(0, io.SeekStart)
+		_, err := t.tempFile.Seek(0, os.SEEK_SET)
 		if err != nil {
 			return len(p), err
 		}
