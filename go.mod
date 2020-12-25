@@ -15,5 +15,5 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/stretchr/testify v1.6.1
-	github.com/tidwall/gjson v1.6.5
+	github.com/tidwall/gjson v1.6.7
 )
