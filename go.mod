@@ -7,7 +7,7 @@ require (
 	github.com/fatih/structs v1.1.0
 	github.com/forensicanalysis/fslib v0.14.9
 	github.com/forensicanalysis/stixgo v0.1.1
-	github.com/google/uuid v1.1.4
+	github.com/google/uuid v1.1.5
 	github.com/imdario/mergo v0.3.11
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.2.0
