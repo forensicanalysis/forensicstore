@@ -34,6 +34,8 @@ jobs:
           mkdir -p path/src/github.com/forensicanalysis
           mv repo path/src/github.com/forensicanalysis/forensicstore
 
+          cp -r path/src/github.com/forensicanalysis/forensicstore/replace/context path/src
+
           mkdir -p path/src/io path/src/internal
           cp -r $(go env GOROOT)/src/io/fs path/src/io
           cp -r $(go env GOROOT)/src/internal/oserror path/src/internal
@@ -56,7 +58,6 @@ jobs:
           curl -Lso go1.7.6.windows-amd64.zip https://golang.org/dl/go1.7.6.windows-amd64.zip
           unzip -q go1.7.6.windows-amd64.zip -d go1.7.6
           GOPATH=$GITHUB_WORKSPACE/path GOROOT=$GITHUB_WORKSPACE/go1.7.6/go go1.7.6/go/bin/go build github.com/forensicanalysis/forensicstore/...
-        continue-on-error: true
         shell: bash
       - name: Build with go 1.5.4
         run: |
@@ -64,7 +65,6 @@ jobs:
           curl -Lso go1.5.4.windows-amd64.zip https://golang.org/dl/go1.5.4.windows-amd64.zip
           unzip -q go1.5.4.windows-amd64.zip -d go1.5.4
           GOPATH=$GITHUB_WORKSPACE/path GOROOT=$GITHUB_WORKSPACE/go1.5.4/go $GITHUB_WORKSPACE/go1.5.4/go/bin/go build github.com/forensicanalysis/forensicstore/...
-        continue-on-error: true
         shell: bash
       - name: Build with go 1.2.2
         run: |
@@ -72,7 +72,6 @@ jobs:
           curl -Lso go1.2.2.windows-amd64.zip https://golang.org/dl/go1.2.2.windows-amd64.zip
           unzip -q go1.2.2.windows-amd64.zip -d go1.2.2
           GOPATH=$GITHUB_WORKSPACE/path GOROOT=$GITHUB_WORKSPACE/go1.2.2/go $GITHUB_WORKSPACE/go1.2.2/go/bin/go build github.com/forensicanalysis/forensicstore/...
-        continue-on-error: true
         shell: bash
 
   goforensicstorelib:
