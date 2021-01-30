@@ -34,9 +34,9 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/forensicanalysis/forensicstore"
+	"github.com/forensicanalysis/forensicstore/copy"
 	"github.com/forensicanalysis/forensicstore/sqlitefs"
-	"github.com/forensicanalysis/fslib/aferotools/copy"
-	"github.com/forensicanalysis/fslib/forensicfs/glob"
+	"github.com/forensicanalysis/fsdoublestar"
 )
 
 func Pack() *cobra.Command {
@@ -146,7 +146,7 @@ func Unpack() *cobra.Command {
 
 				fullPath := filepath.ToSlash(srcPath)
 				if pattern != "" {
-					match, err := glob.Match("**100/"+pattern, fullPath)
+					match, err := fsdoublestar.Match("**100/"+pattern, fullPath)
 					if err != nil {
 						return err
 					}
@@ -257,7 +257,7 @@ func Ls() *cobra.Command {
 				path = filepath.ToSlash(path)
 
 				if pattern != "" {
-					match, err := glob.Match(pattern, path)
+					match, err := fsdoublestar.Match(pattern, path)
 					if err != nil {
 						return err
 					}
