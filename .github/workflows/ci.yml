@@ -35,6 +35,7 @@ jobs:
           mv repo path/src/github.com/forensicanalysis/forensicstore
 
           cp -r path/src/github.com/forensicanalysis/forensicstore/replace/context path/src
+          echo "package afero" > path/src/github.com/spf13/afero/memmap.go
 
           mkdir -p path/src/io path/src/internal
           cp -r $(go env GOROOT)/src/io/fs path/src/io
