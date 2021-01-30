@@ -4,28 +4,20 @@
  <a href="https://github.com/forensicanalysis/forensicstore/actions"><img src="https://github.com/forensicanalysis/forensicstore/workflows/CI/badge.svg" alt="build" /></a>
  <a href="https://codecov.io/gh/forensicanalysis/forensicstore"><img src="https://codecov.io/gh/forensicanalysis/forensicstore/branch/master/graph/badge.svg" alt="coverage" /></a>
  <a href="https://goreportcard.com/report/github.com/forensicanalysis/forensicstore"><img src="https://goreportcard.com/badge/github.com/forensicanalysis/forensicstore" alt="report" /></a>
- <a href="https://pkg.go.dev/github.com/forensicanalysis/forensicstore"><img src="https://img.shields.io/badge/go.dev-documentation-007d9c?logo=go&logoColor=white" alt="doc" /></a>
- <a href="https://app.fossa.io/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore?ref=badge_shield" alt="FOSSA Status"><img src="https://app.fossa.io/api/projects/git%2Bgithub.com%2Fforensicanalysis%2Fforensicstore.svg?type=shield"/></a>
+ <a href="https://godocs.io/github.com/forensicanalysis/forensicstore"><img src="https://godocs.io/github.com/forensicanalysis/forensicstore?status.svg" alt="doc" /></a>
 </p>
 
 The forensicstore project can create,
 access and process forensic artifacts bundled in so called forensicstores
 (a database for forensic artifacts).
 
-
-
-
 ### Installation
 
-
 ```bash
-go get -u github.com/forensicanalysis/forensicstore
+go get github.com/forensicanalysis/forensicstore
 ```
 
-
-### Example Code
-
-
+### Example
 
 ```go
 package main
@@ -55,9 +47,7 @@ func main() {
 	// access element's data
 	fmt.Println(elements)
 }
-
 ```
-
 
 ## Contact
 
