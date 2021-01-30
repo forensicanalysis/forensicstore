@@ -67,6 +67,7 @@ jobs:
           unzip -q go1.5.4.windows-amd64.zip -d go1.5.4
           GOPATH=$GITHUB_WORKSPACE/path GOROOT=$GITHUB_WORKSPACE/go1.5.4/go $GITHUB_WORKSPACE/go1.5.4/go/bin/go build github.com/forensicanalysis/forensicstore/...
         shell: bash
+        continue-on-error: true
       - name: Build with go 1.2.2
         run: |
           mkdir -p go1.2.2
@@ -74,6 +75,7 @@ jobs:
           unzip -q go1.2.2.windows-amd64.zip -d go1.2.2
           GOPATH=$GITHUB_WORKSPACE/path GOROOT=$GITHUB_WORKSPACE/go1.2.2/go $GITHUB_WORKSPACE/go1.2.2/go/bin/go build github.com/forensicanalysis/forensicstore/...
         shell: bash
+        continue-on-error: true
 
   goforensicstorelib:
     name: Go forensicstore
