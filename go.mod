@@ -13,7 +13,7 @@ require (
 	github.com/qri-io/jsonschema v0.2.0
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/afero v1.4.1
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.1.3
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/gjson v1.6.7
