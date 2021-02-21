@@ -1,8 +1,7 @@
 <h1 align="center">forensicstore</h1>
 
 <p  align="center">
- <a href="https://codecov.io/gh/forensicanalysis/forensicstore"><img src="https://codecov.io/gh/forensicanalysis/forensicstore/branch/master/graph/badge.svg" alt="coverage" /></a>
- <a href="https://godocs.io/github.com/forensicanalysis/forensicstore"><img src="https://godocs.io/github.com/forensicanalysis/forensicstore?status.svg" alt="doc" /></a>
+  <a href="https://godocs.io/github.com/forensicanalysis/forensicstore"><img src="https://godocs.io/github.com/forensicanalysis/forensicstore?status.svg" alt="doc" /></a>
 </p>
 
 The forensicstore project can create,
