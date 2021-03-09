@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/qri-io/jsonschema"
 	"github.com/tidwall/gjson"
@@ -44,8 +43,6 @@ func validateSchema(element JSONElement) (flaws []string, err error) {
 	if !elementType.Exists() {
 		flaws = append(flaws, "element needs to have a type")
 	}
-
-	log.Println(string(element))
 
 	schema := jsonschema.GetSchemaRegistry().GetKnown(fmt.Sprintf(
 		"http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/observables/%s.json",
