@@ -4,9 +4,8 @@
   <a href="https://godocs.io/github.com/forensicanalysis/forensicstore"><img src="https://godocs.io/github.com/forensicanalysis/forensicstore?status.svg" alt="doc" /></a>
 </p>
 
-The forensicstore project can create,
-access and process forensic artifacts bundled in so called forensicstores
-(a database for forensic artifacts).
+The forensicstore project can create, access and process forensic artifacts 
+bundled in so called forensicstores (a database for forensic artifacts).
 
 ### Example
 
